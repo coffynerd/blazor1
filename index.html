@@ -34,8 +34,6 @@
         .content {
             padding: 20px 40px;
         }
-        
-        /* Style dla listy zadań i formularza */
         h2, h3 {
             color: #333;
         }
@@ -89,94 +87,6 @@
              background-color: #5a6268;
         }
     </style>
-
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-        // Twoje klucze do Supabase
-        const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        // Referencje do elementów DOM
-        const taskList = document.getElementById('taskList');
-        const hiddenTaskList = document.getElementById('hiddenTaskList');
-        const taskForm = document.getElementById('taskForm');
-
-        // Funkcja renderująca zadania
-        async function renderTasks() {
-            const { data: tasks, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-            
-            // Wyczyść stare wpisy przed renderowaniem
-            taskList.innerHTML = '';
-            hiddenTaskList.innerHTML = '';
-
-            if (error) {
-                console.error('Błąd ładowania zadań:', error);
-                taskList.textContent = 'Wystąpił błąd podczas ładowania zadań.';
-                return;
-            }
-
-            if (tasks.length === 0) {
-                taskList.textContent = 'Brak zadań do wyświetlenia.';
-            }
-
-            tasks.forEach(task => {
-                const div = document.createElement('div');
-                div.classList.add('task');
-                if (task.done) div.classList.add('done');
-
-                const label = document.createElement('label');
-                label.textContent = `${task.content} (Przypisani: ${task.assignees || 'brak'})`;
-                
-                const buttonsDiv = document.createElement('div');
-
-                const editBtn = document.createElement('button');
-                editBtn.textContent = 'Edytuj';
-                editBtn.onclick = async () => {
-                    const newContent = prompt('Nowa treść zadania:', task.content);
-                    const newAssignees = prompt('Nowi przypisani (oddzieleni średnikiem):', task.assignees || '');
-                    if (newContent !== null && newAssignees !== null) {
-                        await supabase.from('tasks').update({ content: newContent, assignees: newAssignees }).eq('id', task.id);
-                        renderTasks();
-                    }
-                };
-
-                const toggleBtn = document.createElement('button');
-                toggleBtn.textContent = task.visible === false ? 'Odkryj' : 'Ukryj';
-                toggleBtn.onclick = async () => {
-                    await supabase.from('tasks').update({ visible: !task.visible }).eq('id', task.id);
-                    renderTasks();
-                };
-                
-                buttonsDiv.appendChild(editBtn);
-                buttonsDiv.appendChild(toggleBtn);
-                div.appendChild(label);
-                div.appendChild(buttonsDiv);
-
-                // Dodaj do właściwej listy
-                if (task.visible === false) {
-                    hiddenTaskList.appendChild(div);
-                } else {
-                    taskList.appendChild(div);
-                }
-            });
-        }
-
-        // Obsługa formularza dodawania zadań
-        taskForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const content = document.getElementById('taskInput').value.trim();
-            const assignees = document.getElementById('assigneeInput').value.trim();
-            if (!content) return alert('Wpisz treść zadania.');
-            await supabase.from('tasks').insert([{ content, assignees, done: false, visible: true }]);
-            taskForm.reset();
-            renderTasks();
-        });
-
-        // Inicjalne renderowanie zadań
-        renderTasks();
-    </script>
 </head>
 <body>
 
@@ -212,13 +122,93 @@
     <p>Strona w budowie</p>
 </div>
 
+
+<script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const taskList = document.getElementById('taskList');
+    const hiddenTaskList = document.getElementById('hiddenTaskList');
+    const taskForm = document.getElementById('taskForm');
+
+    async function renderTasks() {
+        const { data: tasks, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+        
+        taskList.innerHTML = '';
+        hiddenTaskList.innerHTML = '';
+
+        if (error) {
+            console.error('Błąd ładowania zadań:', error);
+            taskList.textContent = 'Wystąpił błąd podczas ładowania zadań.';
+            return;
+        }
+
+        if (tasks.length === 0) {
+            taskList.textContent = 'Brak zadań do wyświetlenia.';
+        }
+
+        tasks.forEach(task => {
+            const div = document.createElement('div');
+            div.classList.add('task');
+            if (task.done) div.classList.add('done');
+
+            const label = document.createElement('label');
+            label.textContent = `${task.content} (Przypisani: ${task.assignees || 'brak'})`;
+            
+            const buttonsDiv = document.createElement('div');
+
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edytuj';
+            editBtn.onclick = async () => {
+                const newContent = prompt('Nowa treść zadania:', task.content);
+                const newAssignees = prompt('Nowi przypisani (oddzieleni średnikiem):', task.assignees || '');
+                if (newContent !== null && newAssignees !== null) {
+                    await supabase.from('tasks').update({ content: newContent, assignees: newAssignees }).eq('id', task.id);
+                    renderTasks();
+                }
+            };
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.textContent = task.visible === false ? 'Odkryj' : 'Ukryj';
+            toggleBtn.onclick = async () => {
+                await supabase.from('tasks').update({ visible: !task.visible }).eq('id', task.id);
+                renderTasks();
+            };
+            
+            buttonsDiv.appendChild(editBtn);
+            buttonsDiv.appendChild(toggleBtn);
+            div.appendChild(label);
+            div.appendChild(buttonsDiv);
+
+            if (task.visible === false) {
+                hiddenTaskList.appendChild(div);
+            } else {
+                taskList.appendChild(div);
+            }
+        });
+    }
+
+    taskForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const content = document.getElementById('taskInput').value.trim();
+        const assignees = document.getElementById('assigneeInput').value.trim();
+        if (!content) return alert('Wpisz treść zadania.');
+        await supabase.from('tasks').insert([{ content, assignees, done: false, visible: true }]);
+        taskForm.reset();
+        renderTasks();
+    });
+
+    renderTasks();
+</script>
+
 <script>
     function showPage(pageId) {
-        // Ukryj wszystkie sekcje 'content'
         document.querySelectorAll('.content').forEach(page => {
             page.style.display = 'none';
         });
-        // Pokaż tylko wybraną sekcję
         document.getElementById(pageId).style.display = 'block';
     }
 </script>
