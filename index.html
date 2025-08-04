@@ -3,84 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administratora</title>
-    <link rel="icon" href="https://raw.githubusercontent.com/coffynerd/task_app_admin/main/public/favicon.png" type="image/png">
-
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-        const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        const taskList = document.getElementById('taskList');
-        const hiddenTaskList = document.getElementById('hiddenTaskList');
-        const taskForm = document.getElementById('taskForm');
-
-        async function renderTasks() {
-            const { data: tasks, error } = await supabase.from('tasks').select('*');
-            taskList.innerHTML = '';
-            hiddenTaskList.innerHTML = '';
-            if (error) {
-                console.error("Błąd Supabase:", error);
-                taskList.textContent = 'Błąd ładowania zadań.';
-                return;
-            }
-
-            tasks.forEach(task => {
-                const div = document.createElement('div');
-                div.classList.add('task');
-                if (task.done) div.classList.add('done');
-
-                const label = document.createElement('label');
-                label.textContent = `${task.content} (Przypisani: ${task.assignees || 'brak'})`;
-
-                const buttonsDiv = document.createElement('div');
-
-                const editBtn = document.createElement('button');
-                editBtn.textContent = 'Edytuj';
-                editBtn.onclick = async () => {
-                    const newContent = prompt('Nowa treść zadania:', task.content);
-                    const newAssignees = prompt('Nowi przypisani (oddzieleni średnikiem):', task.assignees || '');
-                    if (newContent !== null && newAssignees !== null) {
-                        await supabase.from('tasks').update({ content: newContent, assignees: newAssignees }).eq('id', task.id);
-                        renderTasks();
-                    }
-                };
-
-                const toggleBtn = document.createElement('button');
-                toggleBtn.textContent = task.visible === false ? 'Odkryj' : 'Ukryj';
-                toggleBtn.onclick = async () => {
-                    await supabase.from('tasks').update({ visible: !task.visible }).eq('id', task.id);
-                    renderTasks();
-                };
-
-                buttonsDiv.appendChild(editBtn);
-                buttonsDiv.appendChild(toggleBtn);
-                div.appendChild(label);
-                div.appendChild(buttonsDiv);
-
-                (task.visible === false ? hiddenTaskList : taskList).appendChild(div);
-            });
-        }
-
-        taskForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const content = document.getElementById('taskInput').value.trim();
-            const assignees = document.getElementById('assigneeInput').value.trim();
-            if (!content) return alert('Wpisz treść zadania.');
-            await supabase.from('tasks').insert([{ content, assignees, done: false, visible: true }]);
-            taskForm.reset();
-            renderTasks();
-        });
-
-        renderTasks();
-    </script>
-
+    <title>Lista Zadań</title>
+    <link rel="icon" href="favicon.png" type="image/png">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; }
-        .nav { background-color: #333; overflow: hidden; padding: 0 20px; }
-        .nav a {
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .nav-bar {
+            overflow: hidden;
+            padding: 0 20px;
+            color: white;
+        }
+        .blue-nav { background-color: #007bff; }
+        .gray-nav { background-color: #6c757d; }
+        .nav-bar a {
             float: left;
             display: block;
             color: white;
@@ -88,65 +26,242 @@
             padding: 14px 16px;
             text-decoration: none;
             cursor: pointer;
+            transition: background-color 0.3s;
         }
-        .nav a:hover { background-color: #ddd; color: black; }
-        .content { padding: 20px 30px; }
+        .nav-bar a:hover {
+            background-color: yellow;
+            color: black;
+        }
+        .content {
+            padding: 20px 30px;
+            display: none; /* All content hidden by default */
+        }
+        .content.active {
+            display: block; /* Only active content is shown */
+        }
         .task {
-            padding: 10px;
             border-bottom: 1px solid #ddd;
+            padding: 10px 5px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
         }
-        .task.done { background-color: #ffcccc; }
-        form { margin-top: 20px; }
-        button { margin-left: 10px; }
+        .task.done {
+            color: #888;
+            text-decoration: line-through;
+        }
+        .assignees {
+            color: #555;
+            font-size: 0.9em;
+            margin-left: auto;
+            padding-left: 20px;
+            text-align: right;
+        }
+        h2 { color: #333; }
     </style>
 </head>
 <body>
 
-<div class="nav">
-    <a onclick="showPage('tasks')">Lista zadań</a>
-    <a onclick="showPage('order')">Do zamówienia</a>
-    <a onclick="showPage('schedule')">Grafik</a>
-    <a href="https://coffynerd.github.io/task_app" target="_blank">Panel użytkownika</a>
-</div>
+    <div id="user-view">
+        <div class="nav-bar blue-nav">
+            <a onclick="showPage('user-tasks')">Lista zadań</a>
+            <a onclick="showPage('user-order')">Do zamówienia</a>
+            <a onclick="showPage('user-schedule')">Grafik</a>
+            <a onclick="switchToAdmin()">Panel Administratora</a>
+        </div>
+        <div id="user-tasks" class="content active">
+            <h2>Lista Zadań</h2>
+            <div id="supabase-task-list">Ładowanie...</div>
+        </div>
+        <div id="user-order" class="content">
+            <h2>Do zamówienia</h2>
+            <p>strona w budowie 000</p>
+        </div>
+        <div id="user-schedule" class="content">
+            <h2>Grafik</h2>
+            <p>strona w budowie 0010</p>
+        </div>
+    </div>
 
-<div id="tasks" class="content">
-    <h2>Panel Administratora</h2>
-    <form id="taskForm">
-        <h3>Dodaj zadanie</h3>
-        <input type="text" id="taskInput" placeholder="Treść zadania" required>
-        <input type="text" id="assigneeInput" placeholder="Pracownicy (oddzieleni średnikiem)">
-        <button type="submit">Dodaj</button>
-    </form>
-    <h3>Lista zadań</h3>
-    <div id="taskList">Ładowanie...</div>
-    <h3>Zadania ukryte</h3>
-    <div id="hiddenTaskList"></div>
-</div>
+    <div id="admin-view" style="display: none;">
+        <div class="nav-bar gray-nav">
+            <a onclick="showPage('admin-tasks')">Lista zadań</a>
+            <a onclick="showPage('admin-order')">Do zamówienia</a>
+            <a onclick="showPage('admin-schedule')">Grafik</a>
+            <a onclick="switchToUser()">Panel użytkownika</a>
+        </div>
+        <div id="admin-tasks" class="content active">
+            <h2>Lista Zadań (Admin)</h2>
+            <div id="github-task-list">Ładowanie...</div>
+        </div>
+        <div id="admin-order" class="content">
+            <h2>Do zamówienia</h2>
+            <p>strona w budowie 010</p>
+        </div>
+        <div id="admin-schedule" class="content">
+            <h2>Grafik</h2>
+            <p>Strona w budowie 011</p>
+        </div>
+    </div>
 
-<div id="order" class="content" style="display: none;">
-    <h2>Do zamówienia</h2>
-    <p>Strona w budowie</p>
-</div>
+<script type="module">
+    // Import Supabase client
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-<div id="schedule" class="content" style="display: none;">
-    <h2>Grafik</h2>
-    <p>Strona w budowie</p>
-</div>
+    // --- GLOBAL STATE AND VIEW MANAGEMENT ---
+    let isAdminInitialized = false;
 
-
-<script>
     function showPage(pageId) {
-        // Najpierw ukryj wszystkie kontenery
-        document.querySelectorAll('.content').forEach(div => {
-            div.style.display = 'none';
-        });
-        // A potem pokaż tylko ten wybrany
-        document.getElementById(pageId).style.display = 'block';
+        // Hide all content divs
+        document.querySelectorAll('.content').forEach(div => div.classList.remove('active'));
+        // Show the selected one
+        document.getElementById(pageId).classList.add('active');
     }
-</script>
 
+    function switchToAdmin() {
+        const password = prompt("Wpisz hasło administratora:");
+        if (password === "admin") {
+            document.getElementById('user-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'block';
+            showPage('admin-tasks'); // Show default admin page
+            if (!isAdminInitialized) {
+                initAdminView();
+                isAdminInitialized = true;
+            }
+        } else if (password !== null) {
+            alert("Niepoprawne hasło!");
+        }
+    }
+
+    function switchToUser() {
+        document.getElementById('admin-view').style.display = 'none';
+        document.getElementById('user-view').style.display = 'block';
+        showPage('user-tasks'); // Show default user page
+    }
+
+    // Expose functions to be callable from HTML onclick
+    window.showPage = showPage;
+    window.switchToAdmin = switchToAdmin;
+    window.switchToUser = switchToUser;
+
+    // --- USER VIEW LOGIC (Supabase) ---
+    function initUserView() {
+        const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        async function renderSupabaseTasks() {
+            const { data: tasks, error } = await supabase.from('tasks').select('*');
+            const taskList = document.getElementById('supabase-task-list');
+            taskList.innerHTML = '';
+
+            if (error) {
+                taskList.innerHTML = 'Błąd ładowania zadań.';
+                console.error(error);
+                return;
+            }
+
+            tasks.filter(task => task.visible !== false).forEach(task => {
+                const taskDiv = document.createElement('div');
+                taskDiv.classList.add('task');
+                taskDiv.classList.toggle('done', task.done);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.done;
+                checkbox.addEventListener('change', async () => {
+                    await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id);
+                    taskDiv.classList.toggle('done', checkbox.checked);
+                });
+
+                const content = document.createElement('span');
+                content.textContent = ' ' + task.content;
+
+                const assignees = document.createElement('div');
+                assignees.classList.add('assignees');
+                const assigneesList = Array.isArray(task.assignees) ? task.assignees : [];
+                assignees.textContent = 'Osoby: ' + assigneesList.join(', ');
+
+                taskDiv.appendChild(checkbox);
+                taskDiv.appendChild(content);
+                taskDiv.appendChild(assignees);
+                taskList.appendChild(taskDiv);
+            });
+        }
+        renderSupabaseTasks();
+    }
+
+    // --- ADMIN VIEW LOGIC (GitHub API) ---
+    function initAdminView() {
+        const TOKEN = "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";
+        const owner = "coffynerd";
+        const repo = "task_app";
+        const path = "tasks.json";
+
+        async function fetchGithubTasks() {
+            const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`);
+            const data = await response.json();
+            return { tasks: JSON.parse(atob(data.content)), sha: data.sha };
+        }
+
+        async function updateGithubTasks(tasks, sha) {
+            const content = btoa(JSON.stringify(tasks, null, 2));
+            const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+                method: "PUT",
+                headers: { "Authorization": `token ${TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "Update tasks status from app", content: content, sha: sha }),
+            });
+            // Pobierz nowy SHA po udanej aktualizacji
+            if(response.ok) {
+                const result = await response.json();
+                return { success: true, newSha: result.content.sha };
+            }
+            return { success: false };
+        }
+
+        async function renderGithubTasks() {
+            let { tasks, sha } = await fetchGithubTasks();
+            const taskList = document.getElementById('github-task-list');
+            taskList.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const taskDiv = document.createElement('div');
+                taskDiv.classList.add('task');
+                taskDiv.classList.toggle('done', task.done);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.done;
+
+                checkbox.addEventListener('change', async () => {
+                    tasks[index].done = checkbox.checked;
+                    const { success, newSha } = await updateGithubTasks(tasks, sha);
+                    if (success) {
+                        sha = newSha; // Zaktualizuj SHA do dalszych zmian
+                        taskDiv.classList.toggle('done', checkbox.checked);
+                    } else {
+                        alert('Błąd przy aktualizacji statusu zadania!');
+                        checkbox.checked = !checkbox.checked; // Cofnij zmianę
+                    }
+                });
+                
+                const content = document.createElement('span');
+                content.textContent = ' ' + task.content;
+
+                const assignees = document.createElement('div');
+                assignees.classList.add('assignees');
+                assignees.textContent = 'Osoby: ' + task.assignees.join(', ');
+
+                taskDiv.appendChild(checkbox);
+                taskDiv.appendChild(content);
+                taskDiv.appendChild(assignees);
+                taskList.appendChild(taskDiv);
+            });
+        }
+        renderGithubTasks();
+    }
+    
+    // --- INITIALIZE THE APP ---
+    document.addEventListener('DOMContentLoaded', initUserView);
+
+</script>
 </body>
 </html>
