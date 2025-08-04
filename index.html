@@ -16,7 +16,8 @@
             padding: 0 20px;
             color: white;
         }
-        .blue-nav { background-color: #007bff; }
+        /* ZMIANA 1: Nowy kolor niebieski */
+        .blue-nav { background-color: #004896; }
         .gray-nav { background-color: #6c757d; }
         .nav-bar a {
             float: left;
@@ -28,9 +29,14 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
-        .nav-bar a:hover {
-            background-color: yellow;
+        /* ZMIANA 2: Nowy kolor żółty dla niebieskiego paska */
+        .blue-nav a:hover {
+            background-color: #ffc101;
             color: black;
+        }
+        /* ZMIANA 3: Ciemniejszy szary dla paska admina */
+        .gray-nav a:hover {
+            background-color: #5a6268;
         }
         .content {
             padding: 20px 30px;
@@ -39,7 +45,7 @@
         .content.active {
             display: block;
         }
-        .item-row { /* Zmieniono nazwę z .task na bardziej ogólną */
+        .item-row {
             border-bottom: 1px solid #ddd;
             padding: 10px 5px;
             display: flex;
@@ -71,7 +77,7 @@
         h2, h3 { color: #333; }
         form { margin-top: 20px; margin-bottom: 20px; background-color: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         form input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #007bff; }
+        button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #004896; } /* Przycisk też dostaje nowy niebieski */
         .item-row button { background-color: #6c757d; font-size: 0.8em; padding: 5px 8px; }
     </style>
 </head>
@@ -253,7 +259,7 @@
                 doneBtn.textContent = 'Zamówione';
                 doneBtn.onclick = async () => {
                     await supabase.from('orders').update({ is_completed: true }).eq('id', order.id);
-                    renderUserOrders(); // Odśwież, a pozycja zniknie
+                    renderUserOrders(); 
                 };
                 const editBtn = document.createElement('button');
                 editBtn.textContent = 'Edytuj';
