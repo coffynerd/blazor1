@@ -7,7 +7,6 @@
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/coffynerd/task_app_admin/main/public/favicon.png">
 
     <style>
-        /* Style ogólne i nawigacji */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -26,6 +25,7 @@
             padding: 14px 20px;
             text-decoration: none;
             font-size: 16px;
+            cursor: pointer;
         }
         .nav a:hover {
             background-color: #ddd;
@@ -106,9 +106,20 @@
         // Funkcja renderująca zadania
         async function renderTasks() {
             const { data: tasks, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+            
+            // Wyczyść stare wpisy przed renderowaniem
             taskList.innerHTML = '';
             hiddenTaskList.innerHTML = '';
-            if (error) return taskList.textContent = 'Błąd ładowania zadań.';
+
+            if (error) {
+                console.error('Błąd ładowania zadań:', error);
+                taskList.textContent = 'Wystąpił błąd podczas ładowania zadań.';
+                return;
+            }
+
+            if (tasks.length === 0) {
+                taskList.textContent = 'Brak zadań do wyświetlenia.';
+            }
 
             tasks.forEach(task => {
                 const div = document.createElement('div');
@@ -143,7 +154,12 @@
                 div.appendChild(label);
                 div.appendChild(buttonsDiv);
 
-                (task.visible === false ? hiddenTaskList : taskList).appendChild(div);
+                // Dodaj do właściwej listy
+                if (task.visible === false) {
+                    hiddenTaskList.appendChild(div);
+                } else {
+                    taskList.appendChild(div);
+                }
             });
         }
 
@@ -165,9 +181,9 @@
 <body>
 
 <div class="nav">
-    <a href="#tasks" onclick="showPage('tasks')">Lista zadań</a>
-    <a href="#order" onclick="showPage('order')">Do zamówienia</a>
-    <a href="#schedule" onclick="showPage('schedule')">Grafik</a>
+    <a onclick="showPage('tasks')">Lista zadań</a>
+    <a onclick="showPage('order')">Do zamówienia</a>
+    <a onclick="showPage('schedule')">Grafik</a>
 </div>
 
 <div id="tasks" class="content">
@@ -205,10 +221,6 @@
         // Pokaż tylko wybraną sekcję
         document.getElementById(pageId).style.display = 'block';
     }
-    // Domyślnie pokaż pierwszą zakładkę po załadowaniu strony
-    document.addEventListener('DOMContentLoaded', () => {
-        showPage('tasks');
-    });
 </script>
 
 </body>
