@@ -90,7 +90,6 @@
         .item-row.priority.done {
             color: red;
         }
-        /* ZMIANA: Usunięcie przekreślenia tylko dla zamówień */
         .order-item.done {
             text-decoration: none;
         }
@@ -296,9 +295,7 @@
             window.location.href = 'https://coffynerd.github.io/blazor1';
         } else if (password === "iddqd") {
             window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
-        } else if (password === "dark") {
-            toggleTheme();
-        } else if (password !== null) {
+        } else if (password !== null) { // Usunięto warunek dla "dark"
             alert("Niepoprawne hasło!");
         }
     }
@@ -333,7 +330,7 @@
                 const isPriority = task.content.startsWith('!!!');
                 
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row', 'task-item'); // Dodano klasę task-item
+                itemDiv.classList.add('item-row', 'task-item');
                 itemDiv.classList.toggle('done', task.done);
                 if (isPriority) {
                     itemDiv.classList.add('priority');
@@ -377,7 +374,7 @@
 
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row', 'order-item'); // Dodano klasę order-item
+                itemDiv.classList.add('item-row', 'order-item');
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
                 contentWrapper.textContent = order.name;
@@ -451,7 +448,7 @@
                 const isPriority = task.content.startsWith('!!!');
 
                 const div = document.createElement('div');
-                div.classList.add('item-row', 'task-item'); // Dodano klasę task-item
+                div.classList.add('item-row', 'task-item');
                 div.classList.toggle('done', task.done);
                 if(isPriority) {
                     div.classList.add('priority');
@@ -505,7 +502,7 @@
 
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row', 'order-item'); // Dodano klasę order-item
+                itemDiv.classList.add('item-row', 'order-item');
                 itemDiv.classList.toggle('done', order.is_completed);
 
                 const contentWrapper = document.createElement('div');
