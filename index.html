@@ -16,7 +16,6 @@
             padding: 0 20px;
             color: white;
         }
-        /* ZMIANA 1: Nowy kolor niebieski */
         .blue-nav { background-color: #004896; }
         .gray-nav { background-color: #6c757d; }
         .nav-bar a {
@@ -29,12 +28,10 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
-        /* ZMIANA 2: Nowy kolor żółty dla niebieskiego paska */
         .blue-nav a:hover {
             background-color: #ffc101;
             color: black;
         }
-        /* ZMIANA 3: Ciemniejszy szary dla paska admina */
         .gray-nav a:hover {
             background-color: #5a6268;
         }
@@ -77,8 +74,16 @@
         h2, h3 { color: #333; }
         form { margin-top: 20px; margin-bottom: 20px; background-color: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         form input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #004896; } /* Przycisk też dostaje nowy niebieski */
+        button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #004896; }
         .item-row button { background-color: #6c757d; font-size: 0.8em; padding: 5px 8px; }
+        
+        /* DODANY STYL DLA ARKUSZA GOOGLE */
+        .google-sheet-iframe {
+            width: 100%;
+            height: 75vh; /* Ustawia wysokość na 75% wysokości okna przeglądarki */
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -143,7 +148,7 @@
         </div>
         <div id="admin-schedule" class="content">
             <h2>Grafik</h2>
-            <p>Strona w budowie 011</p>
+            <iframe class="google-sheet-iframe" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTDEEc4cmeNHgLhQwp6zAXiUwhzwJSw0DYH-MV0XLEQBs9-2LvsklLOeSHbat4DZexTXeSad5MqzY_e/pubhtml?widget=true&amp;headers=false"></iframe>
         </div>
     </div>
 
