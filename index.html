@@ -295,7 +295,9 @@
             window.location.href = 'https://coffynerd.github.io/blazor1';
         } else if (password === "iddqd") {
             window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
-        } else if (password !== null) { // Usunięto warunek dla "dark"
+        } else if (password === "minecraft") { // ZMIANA: Dodane nowe hasło
+            window.location.href = 'https://classic.minecraft.net';
+        } else if (password !== null) {
             alert("Niepoprawne hasło!");
         }
     }
