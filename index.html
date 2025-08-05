@@ -15,7 +15,6 @@
             --surface-dark: #1e1e1e;
             --border-light: #ddd;
             --border-dark: #333;
-            /* ZMIANA: Nowy kolor dla priorytetów */
             --priority-color: #B8860B; /* Ciemny złoty dla trybu jasnego */
         }
         body {
@@ -85,12 +84,15 @@
             color: var(--priority-color);
             font-weight: bold;
         }
-        /* ZMIANA: Nowy kolor dla priorytetów w trybie ciemnym */
         .dark-mode .item-row.priority {
             color: #ffc101; 
         }
         .item-row.priority.done {
             color: red;
+        }
+        /* ZMIANA: Usunięcie przekreślenia tylko dla zamówień */
+        .order-item.done {
+            text-decoration: none;
         }
         .item-content-wrapper {
              display: flex;
@@ -331,7 +333,7 @@
                 const isPriority = task.content.startsWith('!!!');
                 
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row');
+                itemDiv.classList.add('item-row', 'task-item'); // Dodano klasę task-item
                 itemDiv.classList.toggle('done', task.done);
                 if (isPriority) {
                     itemDiv.classList.add('priority');
@@ -375,7 +377,7 @@
 
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row');
+                itemDiv.classList.add('item-row', 'order-item'); // Dodano klasę order-item
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
                 contentWrapper.textContent = order.name;
@@ -449,7 +451,7 @@
                 const isPriority = task.content.startsWith('!!!');
 
                 const div = document.createElement('div');
-                div.classList.add('item-row');
+                div.classList.add('item-row', 'task-item'); // Dodano klasę task-item
                 div.classList.toggle('done', task.done);
                 if(isPriority) {
                     div.classList.add('priority');
@@ -503,7 +505,7 @@
 
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row');
+                itemDiv.classList.add('item-row', 'order-item'); // Dodano klasę order-item
                 itemDiv.classList.toggle('done', order.is_completed);
 
                 const contentWrapper = document.createElement('div');
