@@ -27,6 +27,11 @@
             overflow: hidden;
             padding: 0 20px;
             color: white;
+            display: flex; /* Użycie flexbox do łatwego pozycjonowania */
+            align-items: center;
+        }
+        .nav-links {
+            flex-grow: 1; /* Powoduje, że lewa część zajmuje dostępną przestrzeń */
         }
         .blue-nav { background-color: #004896; }
         .gray-nav { background-color: #6c757d; }
@@ -46,6 +51,15 @@
         }
         .gray-nav a:hover {
             background-color: #5a6268;
+        }
+        /* ZMIANA: Style dla przycisku zmiany motywu */
+        .theme-toggle-btn {
+            font-size: 1.5em; /* Większa ikonka */
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 10px;
+            margin-left: auto; /* Przesuwa przycisk na prawo */
         }
         .content {
             padding: 20px 30px;
@@ -133,14 +147,23 @@
             background-color: var(--surface-dark);
             border: 1px solid var(--border-dark);
         }
+        .dark-mode form input {
+            background-color: #2a2a2a;
+            color: var(--text-dark);
+            border-color: #444;
+        }
         .dark-mode .item-row {
             border-bottom-color: var(--border-dark);
         }
         .dark-mode .item-row.done {
-            background-color: #2c1d1d; /* Ciemne tło dla wykonanych zadań */
+            background-color: #2c1d1d;
         }
         .dark-mode .assignees, .dark-mode .supplier-info, .dark-mode .date-info {
             color: #999;
+        }
+        .dark-mode .google-sheet-iframe {
+            border-color: var(--border-dark);
+            filter: invert(90%) hue-rotate(180deg); /* Prosty trik na ciemny motyw dla iframe */
         }
     </style>
 </head>
@@ -148,10 +171,13 @@
 
     <div id="user-view">
         <div class="nav-bar blue-nav">
-            <a onclick="showPage('user-tasks')">Lista zadań</a>
-            <a onclick="showPage('user-order')">Do zamówienia</a>
-            <a onclick="showPage('user-schedule')">Grafik</a>
-            <a onclick="switchToAdmin()">Panel Administratora</a>
+            <div class="nav-links">
+                <a onclick="showPage('user-tasks')">Lista zadań</a>
+                <a onclick="showPage('user-order')">Do zamówienia</a>
+                <a onclick="showPage('user-schedule')">Grafik</a>
+                <a onclick="switchToAdmin()">Panel Administratora</a>
+            </div>
+            <button class="theme-toggle-btn"></button>
         </div>
         <div id="user-tasks" class="content active">
             <h2>Lista Zadań</h2>
@@ -174,10 +200,13 @@
 
     <div id="admin-view" style="display: none;">
         <div class="nav-bar gray-nav">
-            <a onclick="showPage('admin-tasks')">Lista zadań</a>
-            <a onclick="showPage('admin-order')">Do zamówienia</a>
-            <a onclick="showPage('admin-schedule')">Grafik</a>
-            <a onclick="switchToUser()">Panel użytkownika</a>
+            <div class="nav-links">
+                <a onclick="showPage('admin-tasks')">Lista zadań</a>
+                <a onclick="showPage('admin-order')">Do zamówienia</a>
+                <a onclick="showPage('admin-schedule')">Grafik</a>
+                <a onclick="switchToUser()">Panel użytkownika</a>
+            </div>
+            <button class="theme-toggle-btn"></button>
         </div>
         <div id="admin-tasks" class="content active">
             <h2>Panel Administratora</h2>
@@ -227,6 +256,21 @@
         document.getElementById(pageId).classList.add('active');
     }
 
+    // ZMIANA: Logika do zmiany motywu
+    const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
+    
+    function updateThemeIcon() {
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        themeToggleButtons.forEach(btn => {
+            btn.innerHTML = isDarkMode ? '☀️' : '🌙';
+        });
+    }
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        updateThemeIcon();
+    }
+
     function switchToAdmin() {
         const password = prompt("Wpisz hasło administratora:");
 
@@ -243,8 +287,7 @@
         } else if (password === "iddqd") {
             window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
         } else if (password === "dark") {
-            // ZMIANA: Dodana funkcja przełączania motywu
-            document.body.classList.toggle('dark-mode');
+            toggleTheme();
         } else if (password !== null) {
             alert("Niepoprawne hasło!");
         }
@@ -497,7 +540,13 @@
     }
     
     // --- INITIALIZE THE APP ---
-    document.addEventListener('DOMContentLoaded', initUserView);
+    document.addEventListener('DOMContentLoaded', () => {
+        initUserView();
+        
+        // Inicjalizacja przycisków motywu
+        themeToggleButtons.forEach(btn => btn.addEventListener('click', toggleTheme));
+        updateThemeIcon(); // Ustawienie poprawnej ikony na starcie
+    });
 </script>
 </body>
 </html>
