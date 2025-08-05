@@ -259,7 +259,7 @@
 
     // --- GLOBAL STATE AND VIEW MANAGEMENT ---
     let isAdminInitialized = false;
-    let isGlaDOSMode = false; // ZMIANA: Flaga dla nowego trybu
+    let isGlaDOSMode = false;
     const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -298,7 +298,7 @@
             window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
         } else if (password === "minecraft") {
             window.location.href = 'https://classic.minecraft.net';
-        } else if (password === "GLaDOS") { // ZMIANA: Dodana obsługa nowego hasła
+        } else if (password === "GLaDOS") {
             isGlaDOSMode = !isGlaDOSMode;
             alert('GLaDOS mode ' + (isGlaDOSMode ? 'activated' : 'deactivated'));
         } else if (password !== null) {
@@ -351,13 +351,20 @@
                 checkbox.style.marginRight = '10px';
                 
                 checkbox.addEventListener('change', async () => {
-                    await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id);
-                    itemDiv.classList.toggle('done', checkbox.checked);
+                    const updateQuery = supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id);
+                    const { error } = await updateQuery;
+                    
+                    if (error) {
+                        alert('Błąd aktualizacji zadania!');
+                        checkbox.checked = !checkbox.checked; // Revert UI change
+                    } else {
+                        itemDiv.classList.toggle('done', checkbox.checked);
 
-                    // ZMIANA: Logika odtwarzania dźwięku
-                    if (isGlaDOSMode && isPriority && checkbox.checked) {
-                        const audio = new Audio('https://raw.githubusercontent.com/coffynerd/blazor1/master/GLaDOS-758719.wav');
-                        audio.play();
+                        // ZMIANA: Zaktualizowany link do audio
+                        if (isGlaDOSMode && isPriority && checkbox.checked) {
+                            const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav');
+                            audio.play();
+                        }
                     }
                 });
 
