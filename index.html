@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lista Zadań</title>
     <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --background-light: #f0f2f5;
@@ -15,7 +18,7 @@
             --surface-dark: #1e1e1e;
             --border-light: #ddd;
             --border-dark: #333;
-            --priority-color: #B8860B; /* Ciemny złoty dla trybu jasnego */
+            --priority-color: #B8860B; 
         }
         body {
             font-family: Arial, sans-serif;
@@ -147,6 +150,7 @@
         .page-header a:hover {
             background-color: #218838;
         }
+        
         /* --- DARK MODE STYLES --- */
         body.dark-mode {
             background-color: var(--background-dark);
@@ -176,6 +180,60 @@
         .dark-mode .google-sheet-iframe {
             border-color: var(--border-dark);
             filter: invert(90%) hue-rotate(180deg);
+        }
+
+        /* --- ZMIANA: WITCHER THEME STYLES --- */
+        body.witcher-theme {
+            font-family: 'Cormorant Garamond', serif;
+        }
+        /* -- Widok Użytkownika (Quick Menu) -- */
+        .witcher-theme #user-view {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .witcher-theme #user-view .blue-nav {
+            background-color: #0f0f0f;
+            border-bottom: 2px solid #c89b3c;
+        }
+        .witcher-theme #user-view .item-row {
+            border-bottom-color: #444;
+        }
+        /* -- Widok Administratora (Settings Menu) -- */
+        .witcher-theme #admin-view {
+            background-color: #c9b89b;
+            color: #2f2f2f;
+        }
+        .witcher-theme #admin-view .gray-nav {
+            background-color: #3a2e24;
+            border-bottom: 2px solid #5c4a3c;
+        }
+        .witcher-theme #admin-view .item-row {
+            border-bottom-color: #a89a81;
+        }
+        .witcher-theme #admin-view h2, .witcher-theme #admin-view h3 {
+             color: #2f2f2f;
+        }
+        .witcher-theme #admin-view form {
+            background-color: #d4c5a9;
+        }
+        /* -- Globalne zmiany dla motywu -- */
+        .witcher-theme h2, .witcher-theme h3 {
+            font-weight: bold;
+        }
+        .witcher-theme .item-row.priority {
+            color: #d44040; /* Czerwony */
+            font-weight: bold;
+        }
+        .witcher-theme .item-row.done {
+            color: #5cb85c; /* Zielony */
+            text-decoration: line-through;
+            background-color: rgba(60, 120, 60, 0.1);
+        }
+        .witcher-theme #admin-view .item-row.done {
+             background-color: rgba(60, 120, 60, 0.15);
+        }
+        .witcher-theme .order-item.done {
+            text-decoration: none; /* Zamówienia nadal bez przekreślenia */
         }
     </style>
 </head>
@@ -271,12 +329,22 @@
     const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
     function updateThemeIcon() {
         const isDarkMode = document.body.classList.contains('dark-mode');
+        // W motywie witcher ikona jest nieistotna, ale ustawiamy ją na domyślną
         themeToggleButtons.forEach(btn => {
             btn.innerHTML = isDarkMode ? '☀️' : '🌙';
         });
     }
+
+    // ZMIANA: Logika przełączania motywów
     function toggleTheme() {
-        document.body.classList.toggle('dark-mode');
+        // Jeśli motyw Witcher jest włączony, wyłącz go i wróć do trybu jasnego
+        if (document.body.classList.contains('witcher-theme')) {
+            document.body.classList.remove('witcher-theme');
+            document.body.classList.remove('dark-mode'); // Upewnij się, że ciemny też jest wyłączony
+        } else {
+            // W przeciwnym wypadku, przełączaj normalnie tryb ciemny
+            document.body.classList.toggle('dark-mode');
+        }
         updateThemeIcon();
     }
 
@@ -295,8 +363,13 @@
             window.location.href = 'https://coffynerd.github.io/blazor1';
         } else if (password === "iddqd") {
             window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
-        } else if (password === "minecraft") { // ZMIANA: Dodane nowe hasło
+        } else if (password === "minecraft") {
             window.location.href = 'https://classic.minecraft.net';
+        } else if (password === "witcher") {
+            // ZMIANA: Logika aktywacji motywu Witcher
+            document.body.classList.remove('dark-mode'); // Wyłącz tryb ciemny
+            document.body.classList.toggle('witcher-theme');
+            updateThemeIcon();
         } else if (password !== null) {
             alert("Niepoprawne hasło!");
         }
@@ -330,38 +403,28 @@
             
             tasks.filter(task => task.visible !== false).forEach(task => {
                 const isPriority = task.content.startsWith('!!!');
-                
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('item-row', 'task-item');
                 itemDiv.classList.toggle('done', task.done);
-                if (isPriority) {
-                    itemDiv.classList.add('priority');
-                }
-                
+                if (isPriority) itemDiv.classList.add('priority');
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
-
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.checked = task.done;
                 checkbox.style.marginRight = '10px';
-                
                 checkbox.addEventListener('change', async () => {
                     await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id);
                     itemDiv.classList.toggle('done', checkbox.checked);
                 });
-
                 const taskContent = document.createElement('span');
                 taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
-                
                 contentWrapper.appendChild(checkbox);
                 contentWrapper.appendChild(taskContent);
-
                 const assignees = document.createElement('div');
                 assignees.classList.add('assignees');
                 const assigneesList = Array.isArray(task.assignees) ? task.assignees : (typeof task.assignees === 'string' && task.assignees.length > 0 ? task.assignees.split(/[,;]/).map(s => s.trim()) : []);
                 assignees.textContent = 'Osoby: ' + (assigneesList.length > 0 ? assigneesList.join(', ') : 'brak');
-                
                 itemDiv.appendChild(contentWrapper);
                 itemDiv.appendChild(assignees);
                 taskList.appendChild(itemDiv);
@@ -373,7 +436,6 @@
             const orderList = document.getElementById('user-order-list');
             orderList.innerHTML = '';
             if (error) { orderList.innerHTML = 'Błąd ładowania listy.'; return; }
-
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('item-row', 'order-item');
@@ -448,18 +510,13 @@
             
             tasks.forEach(task => {
                 const isPriority = task.content.startsWith('!!!');
-
                 const div = document.createElement('div');
                 div.classList.add('item-row', 'task-item');
                 div.classList.toggle('done', task.done);
-                if(isPriority) {
-                    div.classList.add('priority');
-                }
-
+                if(isPriority) div.classList.add('priority');
                 const label = document.createElement('label');
                 const taskText = isPriority ? task.content.substring(3).trim() : task.content;
                 label.textContent = `${taskText} (Przypisani: ${task.assignees || 'brak'})`;
-
                 const buttonsDiv = document.createElement('div');
                 const editBtn = document.createElement('button');
                 editBtn.textContent = 'Edytuj';
@@ -501,25 +558,20 @@
             activeList.innerHTML = '';
             completedList.innerHTML = '';
             if (error) { activeList.innerHTML = 'Błąd ładowania listy.'; return; }
-
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('item-row', 'order-item');
                 itemDiv.classList.toggle('done', order.is_completed);
-
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
                 contentWrapper.textContent = order.name;
-
                 const supplierInfo = document.createElement('span');
                 supplierInfo.classList.add('supplier-info');
                 supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
                 contentWrapper.appendChild(supplierInfo);
-
                 const dateInfo = document.createElement('div');
                 dateInfo.classList.add('date-info');
                 dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
-
                 const buttonsDiv = document.createElement('div');
                 if (!order.is_completed) {
                     const doneBtn = document.createElement('button');
@@ -541,11 +593,9 @@
                     buttonsDiv.appendChild(editBtn);
                     buttonsDiv.appendChild(doneBtn);
                 }
-                
                 itemDiv.appendChild(contentWrapper);
                 itemDiv.appendChild(dateInfo);
                 itemDiv.appendChild(buttonsDiv);
-                
                 if(order.is_completed) {
                     completedList.appendChild(itemDiv);
                 } else {
