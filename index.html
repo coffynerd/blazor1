@@ -186,8 +186,10 @@
         document.getElementById(pageId).classList.add('active');
     }
 
+    // ZMIANA: Dodana obsługa nowych haseł
     function switchToAdmin() {
         const password = prompt("Wpisz hasło administratora:");
+
         if (password === "admin") {
             document.getElementById('user-view').style.display = 'none';
             document.getElementById('admin-view').style.display = 'block';
@@ -196,9 +198,14 @@
                 initAdminView();
                 isAdminInitialized = true;
             }
-        } else if (password !== null) {
+        } else if (password === "dev") {
+            window.location.href = 'https://coffynerd.github.io/blazor1';
+        } else if (password === "iddqd") {
+            window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
+        } else if (password !== null) { // Jeśli użytkownik coś wpisał, ale to nie jest żadne z powyższych
             alert("Niepoprawne hasło!");
         }
+        // Jeśli password === null (użytkownik kliknął Anuluj), nic się nie dzieje
     }
 
     function switchToUser() {
