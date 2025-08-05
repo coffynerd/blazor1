@@ -76,13 +76,29 @@
         form input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
         button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #004896; }
         .item-row button { background-color: #6c757d; font-size: 0.8em; padding: 5px 8px; }
-        
-        /* DODANY STYL DLA ARKUSZA GOOGLE */
         .google-sheet-iframe {
             width: 100%;
-            height: 75vh; /* Ustawia wysokość na 75% wysokości okna przeglądarki */
+            height: 75vh;
             border: 1px solid #ccc;
             border-radius: 5px;
+        }
+        /* DODANY STYL DLA PRZYCISKU "EDYTUJ" */
+        .edit-button-container {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        .edit-button-container a {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+        .edit-button-container a:hover {
+            background-color: #218838;
         }
     </style>
 </head>
@@ -147,7 +163,9 @@
             <div id="admin-order-list-completed"></div>
         </div>
         <div id="admin-schedule" class="content">
-            <h2>Grafik</h2>
+            <div class="edit-button-container">
+                <a href="https://docs.google.com/spreadsheets/d/1nKe6cmb0Tz60gZykzb1Rw06pq1tG0c2FTdktCS2OYV0/edit?usp=sharing" target="_blank">Edytuj</a>
+            </div>
             <iframe class="google-sheet-iframe" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTDEEc4cmeNHgLhQwp6zAXiUwhzwJSw0DYH-MV0XLEQBs9-2LvsklLOeSHbat4DZexTXeSad5MqzY_e/pubhtml?widget=true&amp;headers=false"></iframe>
         </div>
     </div>
