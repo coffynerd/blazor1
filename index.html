@@ -15,7 +15,8 @@
             --surface-dark: #1e1e1e;
             --border-light: #ddd;
             --border-dark: #333;
-            --priority-color: #28a745; /* Zielony dla priorytetów */
+            /* ZMIANA: Nowy kolor dla priorytetów */
+            --priority-color: #B8860B; /* Ciemny złoty dla trybu jasnego */
         }
         body {
             font-family: Arial, sans-serif;
@@ -80,15 +81,14 @@
             text-decoration: line-through;
             background-color: #f9f9f9;
         }
-        /* ZMIANA: Style dla zadań priorytetowych */
         .item-row.priority {
             color: var(--priority-color);
             font-weight: bold;
         }
+        /* ZMIANA: Nowy kolor dla priorytetów w trybie ciemnym */
         .dark-mode .item-row.priority {
-            color: #33d463; /* Jaśniejszy zielony dla ciemnego motywu */
+            color: #ffc101; 
         }
-        /* Wykonane zadanie priorytetowe nadal jest czerwone, ale pozostaje pogrubione */
         .item-row.priority.done {
             color: red;
         }
@@ -319,7 +319,6 @@
             taskList.innerHTML = '';
             if (error) { taskList.innerHTML = 'Błąd ładowania zadań.'; return; }
             
-            // ZMIANA: Sortowanie zadań
             tasks.sort((a, b) => {
                 const aIsPriority = a.content.startsWith('!!!');
                 const bIsPriority = b.content.startsWith('!!!');
@@ -352,7 +351,6 @@
                 });
 
                 const taskContent = document.createElement('span');
-                // ZMIANA: Usuwanie prefiksu !!!
                 taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
                 
                 contentWrapper.appendChild(checkbox);
@@ -439,7 +437,6 @@
             adminHiddenTaskList.innerHTML = '';
             if (error) { adminTaskList.textContent = 'Błąd ładowania zadań.'; return; }
             
-            // ZMIANA: Sortowanie zadań
             tasks.sort((a, b) => {
                 const aIsPriority = a.content.startsWith('!!!');
                 const bIsPriority = b.content.startsWith('!!!');
@@ -459,7 +456,6 @@
                 }
 
                 const label = document.createElement('label');
-                // ZMIANA: Usuwanie prefiksu !!!
                 const taskText = isPriority ? task.content.substring(3).trim() : task.content;
                 label.textContent = `${taskText} (Przypisani: ${task.assignees || 'brak'})`;
 
