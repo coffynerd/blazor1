@@ -15,6 +15,7 @@
             --surface-dark: #1e1e1e;
             --border-light: #ddd;
             --border-dark: #333;
+            --priority-color: #28a745; /* Zielony dla priorytetów */
         }
         body {
             font-family: Arial, sans-serif;
@@ -27,11 +28,11 @@
             overflow: hidden;
             padding: 0 20px;
             color: white;
-            display: flex; /* Użycie flexbox do łatwego pozycjonowania */
+            display: flex;
             align-items: center;
         }
         .nav-links {
-            flex-grow: 1; /* Powoduje, że lewa część zajmuje dostępną przestrzeń */
+            flex-grow: 1;
         }
         .blue-nav { background-color: #004896; }
         .gray-nav { background-color: #6c757d; }
@@ -52,14 +53,13 @@
         .gray-nav a:hover {
             background-color: #5a6268;
         }
-        /* ZMIANA: Style dla przycisku zmiany motywu */
         .theme-toggle-btn {
-            font-size: 1.5em; /* Większa ikonka */
+            font-size: 1.5em;
             background: none;
             border: none;
             cursor: pointer;
             padding: 0 10px;
-            margin-left: auto; /* Przesuwa przycisk na prawo */
+            margin-left: auto;
         }
         .content {
             padding: 20px 30px;
@@ -79,6 +79,18 @@
             color: red;
             text-decoration: line-through;
             background-color: #f9f9f9;
+        }
+        /* ZMIANA: Style dla zadań priorytetowych */
+        .item-row.priority {
+            color: var(--priority-color);
+            font-weight: bold;
+        }
+        .dark-mode .item-row.priority {
+            color: #33d463; /* Jaśniejszy zielony dla ciemnego motywu */
+        }
+        /* Wykonane zadanie priorytetowe nadal jest czerwone, ale pozostaje pogrubione */
+        .item-row.priority.done {
+            color: red;
         }
         .item-content-wrapper {
              display: flex;
@@ -134,7 +146,6 @@
         .page-header a:hover {
             background-color: #218838;
         }
-
         /* --- DARK MODE STYLES --- */
         body.dark-mode {
             background-color: var(--background-dark);
@@ -163,7 +174,7 @@
         }
         .dark-mode .google-sheet-iframe {
             border-color: var(--border-dark);
-            filter: invert(90%) hue-rotate(180deg); /* Prosty trik na ciemny motyw dla iframe */
+            filter: invert(90%) hue-rotate(180deg);
         }
     </style>
 </head>
@@ -256,16 +267,13 @@
         document.getElementById(pageId).classList.add('active');
     }
 
-    // ZMIANA: Logika do zmiany motywu
     const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
-    
     function updateThemeIcon() {
         const isDarkMode = document.body.classList.contains('dark-mode');
         themeToggleButtons.forEach(btn => {
             btn.innerHTML = isDarkMode ? '☀️' : '🌙';
         });
     }
-
     function toggleTheme() {
         document.body.classList.toggle('dark-mode');
         updateThemeIcon();
@@ -305,17 +313,30 @@
 
     // --- USER VIEW LOGIC ---
     function initUserView() {
-        // --- Tasks for User ---
         async function renderSupabaseTasks() {
             const { data: tasks, error } = await supabase.from('tasks').select('*');
             const taskList = document.getElementById('supabase-task-list');
             taskList.innerHTML = '';
             if (error) { taskList.innerHTML = 'Błąd ładowania zadań.'; return; }
             
+            // ZMIANA: Sortowanie zadań
+            tasks.sort((a, b) => {
+                const aIsPriority = a.content.startsWith('!!!');
+                const bIsPriority = b.content.startsWith('!!!');
+                if (aIsPriority && !bIsPriority) return -1;
+                if (!aIsPriority && bIsPriority) return 1;
+                return 0;
+            });
+            
             tasks.filter(task => task.visible !== false).forEach(task => {
+                const isPriority = task.content.startsWith('!!!');
+                
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('item-row');
                 itemDiv.classList.toggle('done', task.done);
+                if (isPriority) {
+                    itemDiv.classList.add('priority');
+                }
                 
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
@@ -331,7 +352,8 @@
                 });
 
                 const taskContent = document.createElement('span');
-                taskContent.textContent = task.content;
+                // ZMIANA: Usuwanie prefiksu !!!
+                taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
                 
                 contentWrapper.appendChild(checkbox);
                 contentWrapper.appendChild(taskContent);
@@ -347,7 +369,6 @@
             });
         }
 
-        // --- Orders for User ---
         async function renderUserOrders() {
             const { data: orders, error } = await supabase.from('orders').select('*').eq('is_completed', false).order('created_at', { ascending: true });
             const orderList = document.getElementById('user-order-list');
@@ -357,20 +378,16 @@
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('item-row');
-                
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
                 contentWrapper.textContent = order.name;
-                
                 const supplierInfo = document.createElement('span');
                 supplierInfo.classList.add('supplier-info');
                 supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
                 contentWrapper.appendChild(supplierInfo);
-
                 const dateInfo = document.createElement('div');
                 dateInfo.classList.add('date-info');
                 dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
-
                 const buttonsDiv = document.createElement('div');
                 const doneBtn = document.createElement('button');
                 doneBtn.textContent = 'Zamówione';
@@ -390,7 +407,6 @@
                 };
                 buttonsDiv.appendChild(editBtn);
                 buttonsDiv.appendChild(doneBtn);
-
                 itemDiv.appendChild(contentWrapper);
                 itemDiv.appendChild(dateInfo);
                 itemDiv.appendChild(buttonsDiv);
@@ -414,7 +430,6 @@
 
     // --- ADMIN VIEW LOGIC ---
     function initAdminView() {
-        // --- Tasks for Admin ---
         const adminTaskList = document.getElementById('admin-task-list-visible');
         const adminHiddenTaskList = document.getElementById('admin-task-list-hidden');
         const adminTaskForm = document.getElementById('admin-task-form');
@@ -424,12 +439,30 @@
             adminHiddenTaskList.innerHTML = '';
             if (error) { adminTaskList.textContent = 'Błąd ładowania zadań.'; return; }
             
+            // ZMIANA: Sortowanie zadań
+            tasks.sort((a, b) => {
+                const aIsPriority = a.content.startsWith('!!!');
+                const bIsPriority = b.content.startsWith('!!!');
+                if (aIsPriority && !bIsPriority) return -1;
+                if (!aIsPriority && bIsPriority) return 1;
+                return 0;
+            });
+            
             tasks.forEach(task => {
+                const isPriority = task.content.startsWith('!!!');
+
                 const div = document.createElement('div');
                 div.classList.add('item-row');
                 div.classList.toggle('done', task.done);
+                if(isPriority) {
+                    div.classList.add('priority');
+                }
+
                 const label = document.createElement('label');
-                label.textContent = `${task.content} (Przypisani: ${task.assignees || 'brak'})`;
+                // ZMIANA: Usuwanie prefiksu !!!
+                const taskText = isPriority ? task.content.substring(3).trim() : task.content;
+                label.textContent = `${taskText} (Przypisani: ${task.assignees || 'brak'})`;
+
                 const buttonsDiv = document.createElement('div');
                 const editBtn = document.createElement('button');
                 editBtn.textContent = 'Edytuj';
@@ -464,7 +497,6 @@
             renderAdminTasks();
         });
         
-        // --- Orders for Admin ---
         async function renderAdminOrders() {
             const { data: orders, error } = await supabase.from('orders').select('*').order('created_at', { ascending: true });
             const activeList = document.getElementById('admin-order-list-active');
@@ -543,9 +575,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         initUserView();
         
-        // Inicjalizacja przycisków motywu
         themeToggleButtons.forEach(btn => btn.addEventListener('click', toggleTheme));
-        updateThemeIcon(); // Ustawienie poprawnej ikony na starcie
+        updateThemeIcon();
     });
 </script>
 </body>
