@@ -82,12 +82,13 @@
             border: 1px solid #ccc;
             border-radius: 5px;
         }
-        /* DODANY STYL DLA PRZYCISKU "EDYTUJ" */
-        .edit-button-container {
-            text-align: right;
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 10px;
         }
-        .edit-button-container a {
+        .page-header a {
             display: inline-block;
             padding: 8px 16px;
             background-color: #28a745;
@@ -97,7 +98,7 @@
             font-size: 0.9em;
             transition: background-color 0.3s;
         }
-        .edit-button-container a:hover {
+        .page-header a:hover {
             background-color: #218838;
         }
     </style>
@@ -163,10 +164,11 @@
             <div id="admin-order-list-completed"></div>
         </div>
         <div id="admin-schedule" class="content">
-            <div class="edit-button-container">
+            <div class="page-header">
+                <h2>Grafik</h2>
                 <a href="https://docs.google.com/spreadsheets/d/1nKe6cmb0Tz60gZykzb1Rw06pq1tG0c2FTdktCS2OYV0/edit?usp=sharing" target="_blank">Edytuj</a>
             </div>
-            <iframe class="google-sheet-iframe" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTDEEc4cmeNHgLhQwp6zAXiUwhzwJSw0DYH-MV0XLEQBs9-2LvsklLOeSHbat4DZexTXeSad5MqzY_e/pubhtml?widget=true&amp;headers=false"></iframe>
+            <iframe class="google-sheet-iframe" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTDEEc4cmeNHgLhQwp6zAXiUwhzwJSw0DYH-MV0XLEQBs9-2LvsklLOeSHbat4DZexTXeSad5MqzY_e/pubhtml?widget=true&amp;headers=false&amp;rm=minimal"></iframe>
         </div>
     </div>
 
