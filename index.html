@@ -281,10 +281,9 @@
         updateThemeIcon();
     }
 
-    function switchToAdmin() {
-        const password = prompt("Wpisz hasło administratora:");
-
-        if (password === "admin") {
+    // ZMIANA: Przebudowa logiki haseł na bardziej elastyczną
+    const passwordActions = {
+        'admin': () => {
             document.getElementById('user-view').style.display = 'none';
             document.getElementById('admin-view').style.display = 'block';
             showPage('admin-tasks');
@@ -292,16 +291,37 @@
                 initAdminView();
                 isAdminInitialized = true;
             }
-        } else if (password === "dev") {
+        },
+        'dev': () => {
             window.location.href = 'https://coffynerd.github.io/blazor1';
-        } else if (password === "iddqd") {
+        },
+        'iddqd': () => {
             window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI';
-        } else if (password === "minecraft") {
+        },
+        'minecraft': () => {
             window.location.href = 'https://classic.minecraft.net';
-        } else if (password === "GLaDOS") {
+        },
+        'GLaDOS': () => {
             isGlaDOSMode = !isGlaDOSMode;
             alert('GLaDOS mode ' + (isGlaDOSMode ? 'activated' : 'deactivated'));
-        } else if (password !== null) {
+        },
+        'help': () => {
+            const availablePasswords = Object.keys(passwordActions).filter(p => p !== 'help');
+            alert('Dostępne hasła:\n- ' + availablePasswords.join('\n- '));
+        }
+    };
+
+    function switchToAdmin() {
+        const password = prompt("Wpisz hasło administratora:");
+
+        if (password === null) {
+            return; // Użytkownik kliknął Anuluj
+        }
+
+        // Sprawdź, czy wpisane hasło istnieje w obiekcie passwordActions
+        if (passwordActions.hasOwnProperty(password)) {
+            passwordActions[password](); // Wykonaj akcję przypisaną do hasła
+        } else {
             alert("Niepoprawne hasło!");
         }
     }
@@ -351,16 +371,12 @@
                 checkbox.style.marginRight = '10px';
                 
                 checkbox.addEventListener('change', async () => {
-                    const updateQuery = supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id);
-                    const { error } = await updateQuery;
-                    
-                    if (error) {
-                        alert('Błąd aktualizacji zadania!');
-                        checkbox.checked = !checkbox.checked; // Revert UI change
+                    const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id);
+                    if(error){
+                        alert('Błąd aktualizacji!');
+                        checkbox.checked = !checkbox.checked;
                     } else {
                         itemDiv.classList.toggle('done', checkbox.checked);
-
-                        // ZMIANA: Zaktualizowany link do audio
                         if (isGlaDOSMode && isPriority && checkbox.checked) {
                             const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav');
                             audio.play();
