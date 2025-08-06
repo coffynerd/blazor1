@@ -259,7 +259,6 @@
 
     // --- GLOBAL STATE AND VIEW MANAGEMENT ---
     let isAdminInitialized = false;
-    let isGlaDOSMode = false;
     const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -281,7 +280,6 @@
         updateThemeIcon();
     }
 
-    // ZMIANA: Przebudowa logiki haseł na bardziej elastyczną
     const passwordActions = {
         'admin': () => {
             document.getElementById('user-view').style.display = 'none';
@@ -301,10 +299,6 @@
         'minecraft': () => {
             window.location.href = 'https://classic.minecraft.net';
         },
-        'GLaDOS': () => {
-            isGlaDOSMode = !isGlaDOSMode;
-            alert('GLaDOS mode ' + (isGlaDOSMode ? 'activated' : 'deactivated'));
-        },
         'help': () => {
             const availablePasswords = Object.keys(passwordActions).filter(p => p !== 'help');
             alert('Dostępne hasła:\n- ' + availablePasswords.join('\n- '));
@@ -315,12 +309,11 @@
         const password = prompt("Wpisz hasło administratora:");
 
         if (password === null) {
-            return; // Użytkownik kliknął Anuluj
+            return;
         }
 
-        // Sprawdź, czy wpisane hasło istnieje w obiekcie passwordActions
         if (passwordActions.hasOwnProperty(password)) {
-            passwordActions[password](); // Wykonaj akcję przypisaną do hasła
+            passwordActions[password]();
         } else {
             alert("Niepoprawne hasło!");
         }
@@ -377,7 +370,8 @@
                         checkbox.checked = !checkbox.checked;
                     } else {
                         itemDiv.classList.toggle('done', checkbox.checked);
-                        if (isGlaDOSMode && isPriority && checkbox.checked) {
+                        // ZMIANA: Usunięto warunek isGlaDOSMode
+                        if (isPriority && checkbox.checked) {
                             const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav');
                             audio.play();
                         }
