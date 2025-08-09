@@ -109,6 +109,10 @@
             margin-left: auto;
             padding-left: 20px;
             text-align: right;
+            white-space: nowrap; /* Zapobiega łamaniu daty */
+        }
+        .right-aligned-info {
+            text-align: right;
         }
         h2, h3 { color: var(--text-light); }
         form { 
@@ -338,6 +342,10 @@
                 const bIsPriority = b.content.startsWith('!!!');
                 if (aIsPriority && !bIsPriority) return -1;
                 if (!aIsPriority && bIsPriority) return 1;
+                // ZMIANA: Sortowanie po dacie, jeśli priorytet jest taki sam
+                if (a.created_at && b.created_at) {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                }
                 return 0;
             });
             
@@ -373,12 +381,28 @@
                 taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
                 contentWrapper.appendChild(checkbox);
                 contentWrapper.appendChild(taskContent);
+                
+                // ZMIANA: Nowy kontener na informacje po prawej stronie
+                const rightSideInfo = document.createElement('div');
+                rightSideInfo.classList.add('right-aligned-info');
+
                 const assignees = document.createElement('div');
                 assignees.classList.add('assignees');
                 const assigneesList = Array.isArray(task.assignees) ? task.assignees : (typeof task.assignees === 'string' && task.assignees.length > 0 ? task.assignees.split(/[,;]/).map(s => s.trim()) : []);
                 assignees.textContent = 'Osoby: ' + (assigneesList.length > 0 ? assigneesList.join(', ') : 'brak');
+                
+                rightSideInfo.appendChild(assignees);
+
+                // ZMIANA: Dodanie wyświetlania daty
+                if (task.created_at) {
+                    const dateInfo = document.createElement('div');
+                    dateInfo.classList.add('date-info');
+                    dateInfo.textContent = new Date(task.created_at).toLocaleDateString('pl-PL');
+                    rightSideInfo.appendChild(dateInfo);
+                }
+
                 itemDiv.appendChild(contentWrapper);
-                itemDiv.appendChild(assignees);
+                itemDiv.appendChild(rightSideInfo);
                 taskList.appendChild(itemDiv);
             });
         }
@@ -457,21 +481,21 @@
                 const bIsPriority = b.content.startsWith('!!!');
                 if (aIsPriority && !bIsPriority) return -1;
                 if (!aIsPriority && bIsPriority) return 1;
+                 if (a.created_at && b.created_at) {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                }
                 return 0;
             });
             
             tasks.forEach(task => {
                 const isPriority = task.content.startsWith('!!!');
-
                 const div = document.createElement('div');
                 div.classList.add('item-row', 'task-item');
                 div.classList.toggle('done', task.done);
                 if(isPriority) div.classList.add('priority');
 
-                // ZMIANA: Dodany checkbox i wrapper, tak jak w widoku użytkownika
                 const contentWrapper = document.createElement('div');
                 contentWrapper.classList.add('item-content-wrapper');
-
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.checked = task.done;
@@ -489,7 +513,10 @@
 
                 const label = document.createElement('label');
                 const taskText = isPriority ? task.content.substring(3).trim() : task.content;
-                label.textContent = `${taskText} (Przypisani: ${task.assignees || 'brak'})`;
+                
+                // ZMIANA: Dodanie daty do etykiety
+                const dateString = task.created_at ? ` | ${new Date(task.created_at).toLocaleDateString('pl-PL')}` : '';
+                label.textContent = `${taskText} (Przypisani: ${task.assignees || 'brak'})${dateString}`;
                 
                 contentWrapper.appendChild(checkbox);
                 contentWrapper.appendChild(label);
@@ -537,7 +564,6 @@
             activeList.innerHTML = '';
             completedList.innerHTML = '';
             if (error) { activeList.innerHTML = 'Błąd ładowania listy.'; return; }
-
             orders.forEach(order => {
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('item-row', 'order-item');
