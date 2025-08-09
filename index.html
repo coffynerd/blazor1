@@ -440,6 +440,7 @@
             taskList.appendChild(itemDiv);
         });
     }
+
     async function renderUserOrders() {
         const { data: orders, error } = await supabase.from('orders').select('*').eq('is_completed', false).order('created_at', { ascending: true });
         const orderList = document.getElementById('user-order-list');
@@ -473,6 +474,7 @@
             orderList.appendChild(itemDiv);
         });
     }
+
     async function renderUserNotes() { 
         const userNoteTitleList = document.getElementById('user-note-title-list');
         const { data: notes, error } = await supabase.from('notes').select('*').eq('is_public', true).order('is_pinned', { ascending: false }).order('updated_at', { ascending: true }); 
@@ -502,6 +504,7 @@
         const currentUserNoteId = document.getElementById('user-note-title-input').dataset.currentId;
         if(currentUserNoteId) { const selectedItem = userNoteTitleList.querySelector(`[data-note-id='${currentUserNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); } 
     }
+
     async function renderAdminTasks() {
         const adminTaskList = document.getElementById('admin-task-list-visible');
         const adminHiddenTaskList = document.getElementById('admin-task-list-hidden');
@@ -543,6 +546,7 @@
             (task.visible === false ? adminHiddenTaskList : adminTaskList).appendChild(div);
         });
     }
+
     async function renderAdminOrders() {
         const { data: orders, error } = await supabase.from('orders').select('*').order('created_at', { ascending: true });
         const activeList = document.getElementById('admin-order-list-active');
@@ -581,6 +585,7 @@
             if(order.is_completed) { completedList.appendChild(itemDiv); } else { activeList.appendChild(itemDiv); }
         });
     }
+
     async function renderNotes() { 
         const noteTitleList = document.getElementById('note-title-list');
         const { data, error } = await supabase.from('notes').select('*').order('is_pinned', { ascending: false }).order('updated_at', { ascending: true }); 
@@ -629,42 +634,44 @@
 
     async function refreshAllData() {
         console.log("Odświeżanie danych...");
-        await Promise.all([ renderSupabaseTasks(), renderUserOrders(), renderUserNotes() ]);
+        const userPromises = [ renderSupabaseTasks(), renderUserOrders(), renderUserNotes() ];
+        await Promise.all(userPromises);
+        
         if (isAdminInitialized) {
-            await Promise.all([ renderAdminTasks(), renderAdminOrders(), renderNotes() ]);
+            const adminPromises = [ renderAdminTasks(), renderAdminOrders(), renderNotes() ];
+            await Promise.all(adminPromises);
         }
         console.log("Dane odświeżone.");
     }
 
     // --- USER VIEW INITIALIZATION ---
+    let currentUserNoteId = null;
+    const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'), userNoteTimestamps = document.getElementById('user-note-timestamps');
+    function clearUserEditor() { currentUserNoteId = null; userNoteTitleInput.value = ''; userNoteContentInput.value = ''; userNoteColorInput.value = '#000000'; userNoteTimestamps.innerHTML = ''; userNoteTitleInput.dataset.currentId = ''; const selected = document.getElementById('user-note-title-list').querySelector('.selected'); if(selected) selected.classList.remove('selected'); }
+    function loadUserNoteIntoEditor(note) { currentUserNoteId = note.id; userNoteTitleInput.dataset.currentId = note.id; userNoteTitleInput.value = note.title; userNoteContentInput.value = note.content; userNoteColorInput.value = note.title_color || '#000000'; const created = new Date(note.created_at).toLocaleString('pl-PL'); const updated = note.updated_at ? new Date(note.updated_at).toLocaleString('pl-PL') : '---'; userNoteTimestamps.innerHTML = `Utworzono: ${created} | Ost. edycja: ${updated}`; document.getElementById('user-note-title-list').querySelectorAll('.note-list-item').forEach(item => { item.classList.toggle('selected', item.dataset.noteId == note.id); }); }
+    async function saveUserNote() { const title = userNoteTitleInput.value, content = userNoteContentInput.value, title_color = userNoteColorInput.value; if (!title) { alert('Tytuł notatki jest wymagany.'); return; } if (currentUserNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentUserNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color, is_public: true }]).select(); if(data && data.length > 0) { currentUserNoteId = data[0].id; } } renderUserNotes(); }
+
     function initUserView() {
-        const userOrderForm = document.getElementById('user-order-form');
-        const userNewNoteBtn = document.getElementById('user-new-note-btn');
-        const userSaveNoteBtn = document.getElementById('user-save-note-btn');
-        userOrderForm.addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('user-order-name').value; const supplier = document.getElementById('user-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); userOrderForm.reset(); renderUserOrders(); });
-        userNewNoteBtn.onclick = clearUserEditor;
-        userSaveNoteBtn.onclick = saveUserNote;
+        document.getElementById('user-order-form').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('user-order-name').value; const supplier = document.getElementById('user-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); e.target.reset(); renderUserOrders(); });
+        document.getElementById('user-new-note-btn').onclick = clearUserEditor;
+        document.getElementById('user-save-note-btn').onclick = saveUserNote;
         refreshAllData();
     }
 
     // --- ADMIN VIEW INITIALIZATION ---
     let currentAdminNoteId = null;
     const adminNoteTitleInput = document.getElementById('note-title-input'), adminNoteColorInput = document.getElementById('note-color-input'), adminNoteContentInput = document.getElementById('note-content-input'), adminNoteTimestamps = document.getElementById('note-timestamps');
-    function clearAdminEditor() { currentAdminNoteId = null; adminNoteTitleInput.value = ''; adminNoteContentInput.value = ''; adminNoteColorInput.value = '#000000'; adminNoteTimestamps.innerHTML = ''; const selected = document.getElementById('note-title-list').querySelector('.selected'); if(selected) selected.classList.remove('selected'); }
-    function loadAdminNoteIntoEditor(note) { currentAdminNoteId = note.id; adminNoteTitleInput.value = note.title; adminNoteContentInput.value = note.content; adminNoteColorInput.value = note.title_color || '#000000'; const created = new Date(note.created_at).toLocaleString('pl-PL'); const updated = note.updated_at ? new Date(note.updated_at).toLocaleString('pl-PL') : '---'; adminNoteTimestamps.innerHTML = `Utworzono: ${created} | Ost. edycja: ${updated}`; document.querySelectorAll('.note-list-item').forEach(item => { item.classList.toggle('selected', item.dataset.noteId == note.id); }); }
+    function clearAdminEditor() { currentAdminNoteId = null; adminNoteTitleInput.value = ''; adminNoteContentInput.value = ''; adminNoteColorInput.value = '#000000'; adminNoteTimestamps.innerHTML = ''; adminNoteTitleInput.dataset.currentId = ''; const selected = document.getElementById('note-title-list').querySelector('.selected'); if(selected) selected.classList.remove('selected'); }
+    function loadAdminNoteIntoEditor(note) { currentAdminNoteId = note.id; adminNoteTitleInput.dataset.currentId = note.id; adminNoteTitleInput.value = note.title; adminNoteContentInput.value = note.content; adminNoteColorInput.value = note.title_color || '#000000'; const created = new Date(note.created_at).toLocaleString('pl-PL'); const updated = note.updated_at ? new Date(note.updated_at).toLocaleString('pl-PL') : '---'; adminNoteTimestamps.innerHTML = `Utworzono: ${created} | Ost. edycja: ${updated}`; document.getElementById('note-title-list').querySelectorAll('.note-list-item').forEach(item => { item.classList.toggle('selected', item.dataset.noteId == note.id); }); }
     async function saveAdminNote() { const title = adminNoteTitleInput.value, content = adminNoteContentInput.value, title_color = adminNoteColorInput.value; if (!title) { alert('Tytuł notatki jest wymagany.'); return; } if (currentAdminNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentAdminNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color }]).select(); if(data && data.length > 0) { currentAdminNoteId = data[0].id; loadAdminNoteIntoEditor(data[0]); } } renderNotes(); }
     async function deleteAdminNote() { if (!currentAdminNoteId) return; if (confirm('Czy na pewno chcesz usunąć tę notatkę?')) { await supabase.from('notes').delete().eq('id', currentAdminNoteId); clearAdminEditor(); renderNotes(); } }
-
+    
     function initAdminView() {
-        const adminTaskForm = document.getElementById('admin-task-form');
-        adminTaskForm.addEventListener('submit', async (e) => { e.preventDefault(); const content = document.getElementById('admin-task-input').value.trim(); const assignees = document.getElementById('admin-assignee-input').value.trim(); if (!content) return; await supabase.from('tasks').insert([{ content, assignees, done: false, visible: true }]); adminTaskForm.reset(); renderAdminTasks(); });
-        const adminOrderForm = document.getElementById('admin-order-form');
-        adminOrderForm.addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('admin-order-name').value; const supplier = document.getElementById('admin-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); adminOrderForm.reset(); renderAdminOrders(); });
-
+        document.getElementById('admin-task-form').addEventListener('submit', async (e) => { e.preventDefault(); const content = document.getElementById('admin-task-input').value.trim(); const assignees = document.getElementById('admin-assignee-input').value.trim(); if (!content) return; await supabase.from('tasks').insert([{ content, assignees, done: false, visible: true }]); e.target.reset(); renderAdminTasks(); });
+        document.getElementById('admin-order-form').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('admin-order-name').value; const supplier = document.getElementById('admin-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); e.target.reset(); renderAdminOrders(); });
         document.getElementById('new-note-btn').onclick = clearAdminEditor;
         document.getElementById('save-note-btn').onclick = saveAdminNote;
         document.getElementById('delete-note-btn').onclick = deleteAdminNote;
-        
         refreshAllData();
     }
     
