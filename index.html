@@ -254,7 +254,7 @@
                 <div class="note-editor-column">
                     <div class="editor-header">
                         <input type="text" id="user-note-title-input" placeholder="Tytuł notatki...">
-                        <input type="color" id="user-note-color-input" title="Wybierz kolor tytułu">
+                        <input type="color" id="user-note-color-input" title="Wybierz kolor tytułu" value="#000000">
                     </div>
                     <textarea id="user-note-content-input" placeholder="Treść notatki..."></textarea>
                     <div id="user-note-timestamps"></div>
@@ -284,38 +284,144 @@
         <div id="admin-schedule" class="content">
             </div>
         <div id="admin-notes" class="content">
-            <h2>Notatnik</h2>
-            <div class="notebook-container">
-                <div class="note-list-column">
-                    <button id="new-note-btn">+ Nowa notatka</button>
-                    <div id="note-title-list">Ładowanie...</div>
-                </div>
-                <div class="note-editor-column">
-                    <div class="editor-header">
-                        <input type="text" id="note-title-input" placeholder="Tytuł notatki...">
-                        <input type="color" id="note-color-input" title="Wybierz kolor tytułu">
-                    </div>
-                    <textarea id="note-content-input" placeholder="Treść notatki..."></textarea>
-                    <div id="note-timestamps"></div>
-                    <div class="note-editor-buttons">
-                        <button id="delete-note-btn">Usuń</button>
-                        <button id="save-note-btn">Zapisz</button>
-                    </div>
-                </div>
             </div>
-        </div>
     </div>
 
 <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // ... (kod do `switchToUser` bez zmian)
+    // --- GLOBAL STATE AND VIEW MANAGEMENT ---
+    let isAdminInitialized = false;
+    const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    function showPage(pageId) {
+        document.querySelectorAll('.content').forEach(div => div.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+    }
+
+    const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
+    function updateThemeIcon() {
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        themeToggleButtons.forEach(btn => { btn.innerHTML = isDarkMode ? '☀️' : '🌙'; });
+    }
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        updateThemeIcon();
+    }
+
+    const passwordActions = {
+        'admin': () => {
+            document.getElementById('user-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'block';
+            showPage('admin-tasks');
+            if (!isAdminInitialized) { initAdminView(); isAdminInitialized = true; }
+        },
+        'dev': () => window.location.href = 'https://coffynerd.github.io/blazor1',
+        'iddqd': () => window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI',
+        'minecraft': () => window.location.href = 'https://classic.minecraft.net',
+        'help': () => {
+            const availablePasswords = Object.keys(passwordActions).filter(p => p !== 'help');
+            alert('Dostępne hasła:\n- ' + availablePasswords.join('\n- '));
+        }
+    };
+
+    function switchToAdmin() {
+        const password = prompt("Wpisz hasło administratora:");
+        if (password === null) return;
+        if (passwordActions.hasOwnProperty(password)) {
+            passwordActions[password]();
+        } else {
+            alert("Niepoprawne hasło!");
+        }
+    }
+
+    function switchToUser() {
+        document.getElementById('admin-view').style.display = 'none';
+        document.getElementById('user-view').style.display = 'block';
+        showPage('user-tasks');
+    }
+
+    window.showPage = showPage;
+    window.switchToAdmin = switchToAdmin;
+    window.switchToUser = switchToUser;
 
     // --- USER VIEW LOGIC ---
     function initUserView() {
-        // ... (reszta kodu bez zmian)
-
-        // --- Nowa logika dla notatnika użytkownika ---
+        async function renderSupabaseTasks() {
+            const { data: tasks, error } = await supabase.from('tasks').select('*');
+            const taskList = document.getElementById('supabase-task-list');
+            taskList.innerHTML = '';
+            if (error) { taskList.innerHTML = 'Błąd ładowania zadań.'; return; }
+            tasks.sort((a, b) => { const aIsPriority = a.content.startsWith('!!!'); const bIsPriority = b.content.startsWith('!!!'); if (aIsPriority && !bIsPriority) return -1; if (!aIsPriority && bIsPriority) return 1; if (a.created_at && b.created_at) { return new Date(b.created_at) - new Date(a.created_at); } return 0; });
+            tasks.filter(task => task.visible !== false).forEach(task => {
+                const isPriority = task.content.startsWith('!!!');
+                const itemDiv = document.createElement('div');
+                itemDiv.classList.add('item-row', 'task-item');
+                itemDiv.classList.toggle('done', task.done);
+                if (isPriority) itemDiv.classList.add('priority');
+                const contentWrapper = document.createElement('div');
+                contentWrapper.classList.add('item-content-wrapper');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.done;
+                checkbox.style.marginRight = '10px';
+                checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ alert('Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { itemDiv.classList.toggle('done', checkbox.checked); if (isPriority && checkbox.checked) { const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav'); audio.play(); } } });
+                const taskContent = document.createElement('span');
+                taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
+                contentWrapper.appendChild(checkbox);
+                contentWrapper.appendChild(taskContent);
+                const rightSideInfo = document.createElement('div');
+                rightSideInfo.classList.add('right-aligned-info');
+                const assignees = document.createElement('div');
+                assignees.classList.add('assignees');
+                const assigneesList = Array.isArray(task.assignees) ? task.assignees : (typeof task.assignees === 'string' && task.assignees.length > 0 ? task.assignees.split(/[,;]/).map(s => s.trim()) : []);
+                assignees.textContent = 'Osoby: ' + (assigneesList.length > 0 ? assigneesList.join(', ') : 'brak');
+                rightSideInfo.appendChild(assignees);
+                if (task.created_at) { const dateInfo = document.createElement('div'); dateInfo.classList.add('date-info'); dateInfo.textContent = new Date(task.created_at).toLocaleDateString('pl-PL'); rightSideInfo.appendChild(dateInfo); }
+                itemDiv.appendChild(contentWrapper);
+                itemDiv.appendChild(rightSideInfo);
+                taskList.appendChild(itemDiv);
+            });
+        }
+        async function renderUserOrders() {
+            const { data: orders, error } = await supabase.from('orders').select('*').eq('is_completed', false).order('created_at', { ascending: true });
+            const orderList = document.getElementById('user-order-list');
+            orderList.innerHTML = '';
+            if (error) { orderList.innerHTML = 'Błąd ładowania listy.'; return; }
+            orders.forEach(order => {
+                const itemDiv = document.createElement('div');
+                itemDiv.classList.add('item-row', 'order-item');
+                const contentWrapper = document.createElement('div');
+                contentWrapper.classList.add('item-content-wrapper');
+                contentWrapper.textContent = order.name;
+                const supplierInfo = document.createElement('span');
+                supplierInfo.classList.add('supplier-info');
+                supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
+                contentWrapper.appendChild(supplierInfo);
+                const dateInfo = document.createElement('div');
+                dateInfo.classList.add('date-info');
+                dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
+                const buttonsDiv = document.createElement('div');
+                const doneBtn = document.createElement('button');
+                doneBtn.textContent = 'Zamówione';
+                doneBtn.onclick = async () => { await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); renderUserOrders(); };
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edytuj';
+                editBtn.onclick = async () => { const newName = prompt("Nowa nazwa produktu:", order.name); const newSupplier = prompt("Nowy dostawca:", order.supplier); if(newName !== null && newSupplier !== null) { await supabase.from('orders').update({ name: newName, supplier: newSupplier }).eq('id', order.id); renderUserOrders(); } };
+                buttonsDiv.appendChild(editBtn);
+                buttonsDiv.appendChild(doneBtn);
+                itemDiv.appendChild(contentWrapper);
+                itemDiv.appendChild(dateInfo);
+                itemDiv.appendChild(buttonsDiv);
+                orderList.appendChild(itemDiv);
+            });
+        }
+        const userOrderForm = document.getElementById('user-order-form');
+        userOrderForm.addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('user-order-name').value; const supplier = document.getElementById('user-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); userOrderForm.reset(); renderUserOrders(); });
+        
+        // --- User Notes Logic ---
         const userNoteTitleList = document.getElementById('user-note-title-list');
         const userNoteTitleInput = document.getElementById('user-note-title-input');
         const userNoteColorInput = document.getElementById('user-note-color-input');
@@ -351,8 +457,12 @@
         async function renderUserNotes() {
             const { data: notes, error } = await supabase.from('notes').select('*').eq('is_public', true).order('is_pinned', { ascending: false }).order('updated_at', { ascending: true });
             if (error) { userNoteTitleList.innerHTML = 'Błąd ładowania notatek.'; return; }
-            if (notes.length === 0) { userNoteTitleList.innerHTML = 'Brak notatek.'; return; }
+            
             userNoteTitleList.innerHTML = '';
+            if (notes.length === 0) {
+                userNoteTitleList.innerHTML = 'Brak notatek.';
+                return;
+            }
             
             notes.forEach(note => {
                 const item = document.createElement('div');
@@ -366,7 +476,8 @@
                 item.onclick = () => loadUserNoteIntoEditor(note);
                 userNoteTitleList.appendChild(item);
             });
-             if(currentUserNoteId) { const selectedItem = userNoteTitleList.querySelector(`[data-note-id='${currentUserNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); }
+
+            if(currentUserNoteId) { const selectedItem = userNoteTitleList.querySelector(`[data-note-id='${currentUserNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); }
         }
 
         userNewNoteBtn.onclick = clearUserEditor;
@@ -375,9 +486,13 @@
             const content = userNoteContentInput.value;
             const title_color = userNoteColorInput.value;
             if (!title) { alert('Tytuł notatki jest wymagany.'); return; }
+
             if (currentUserNoteId) {
+                // Użytkownik może edytować tylko notatki, które sam stworzył (do dodania w przyszłości)
+                // Na razie pozwalamy na edycję notatek publicznych
                 await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentUserNoteId);
             } else {
+                // Notatki tworzone przez użytkownika są domyślnie publiczne
                 const { data } = await supabase.from('notes').insert([{ title, content, title_color, is_public: true }]).select();
                 if(data && data.length > 0) {
                     currentUserNoteId = data[0].id;
@@ -385,7 +500,7 @@
             }
             renderUserNotes();
         };
-        
+
         renderSupabaseTasks();
         renderUserOrders();
         renderUserNotes();
@@ -393,13 +508,81 @@
 
     // --- ADMIN VIEW LOGIC ---
     function initAdminView() {
-        // ... (reszta kodu bez zmian, w tym pełna funkcja `renderNotes` dla admina)
+        async function renderAdminTasks() { /* ... bez zmian ... */ }
+        const adminTaskForm = document.getElementById('admin-task-form');
+        adminTaskForm.addEventListener('submit', async (e) => { /* ... bez zmian ... */ });
+        
+        async function renderAdminOrders() { /* ... bez zmian ... */ }
+        const adminOrderForm = document.getElementById('admin-order-form');
+        adminOrderForm.addEventListener('submit', async (e) => { /* ... bez zmian ... */ });
+
+        // --- Notebook logic ---
+        const noteTitleList = document.getElementById('note-title-list');
+        const noteTitleInput = document.getElementById('note-title-input');
+        const noteColorInput = document.getElementById('note-color-input');
+        const noteContentInput = document.getElementById('note-content-input');
+        const newNoteBtn = document.getElementById('new-note-btn');
+        const saveNoteBtn = document.getElementById('save-note-btn');
+        const deleteNoteBtn = document.getElementById('delete-note-btn');
+        const noteTimestamps = document.getElementById('note-timestamps');
+        let currentNoteId = null;
+
+        function clearEditor() { /* ... bez zmian ... */ }
+        function loadNoteIntoEditor(note) { /* ... bez zmian ... */ }
+        async function renderNotes() {
+            const { data, error } = await supabase.from('notes').select('*').order('is_pinned', { ascending: false }).order('updated_at', { ascending: true });
+            if (error) { noteTitleList.innerHTML = 'Błąd ładowania notatek.'; return; }
+            noteTitleList.innerHTML = '';
+            data.forEach(note => {
+                const item = document.createElement('div');
+                item.classList.add('note-list-item');
+                item.classList.toggle('pinned', note.is_pinned);
+                item.classList.toggle('public', note.is_public);
+                item.dataset.noteId = note.id;
+                const titleWrapper = document.createElement('div');
+                titleWrapper.classList.add('note-title-wrapper');
+                const titleSpan = document.createElement('span');
+                titleSpan.classList.add('note-title');
+                titleSpan.textContent = note.title || 'Nowa notatka';
+                titleSpan.style.color = note.title_color || 'inherit';
+                const dateSpan = document.createElement('span');
+                dateSpan.classList.add('note-list-date');
+                const displayDate = note.updated_at || note.created_at;
+                dateSpan.textContent = `(${new Date(displayDate).toLocaleDateString('pl-PL')})`;
+                titleWrapper.appendChild(titleSpan);
+                titleWrapper.appendChild(dateSpan);
+                const actionsWrapper = document.createElement('div');
+                actionsWrapper.classList.add('note-actions');
+                const pinBtn = document.createElement('span');
+                pinBtn.classList.add('note-pin-btn');
+                pinBtn.innerHTML = '📌';
+                pinBtn.title = 'Przypnij/Odepnij';
+                pinBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id); renderNotes(); };
+                const publishBtn = document.createElement('span');
+                publishBtn.classList.add('note-publish-btn');
+                publishBtn.innerHTML = note.is_public ? '🔓' : '🔒';
+                publishBtn.title = note.is_public ? 'Uczyń prywatną' : 'Upublicznij';
+                publishBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_public: !note.is_public }).eq('id', note.id); renderNotes(); };
+                actionsWrapper.appendChild(pinBtn);
+                actionsWrapper.appendChild(publishBtn);
+                item.appendChild(titleWrapper);
+                item.appendChild(actionsWrapper);
+                item.onclick = () => loadNoteIntoEditor(note);
+                noteTitleList.appendChild(item);
+            });
+            if(currentNoteId) { const selectedItem = noteTitleList.querySelector(`[data-note-id='${currentNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); }
+        }
+
+        newNoteBtn.onclick = clearEditor;
+        saveNoteBtn.onclick = async () => { const title = noteTitleInput.value, content = noteContentInput.value, title_color = noteColorInput.value; if (!title) { alert('Tytuł notatki jest wymagany.'); return; } if (currentNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color }]).select(); if(data && data.length > 0) { currentNoteId = data[0].id; loadNoteIntoEditor(data[0]); } } renderNotes(); };
+        deleteNoteBtn.onclick = async () => { if (!currentNoteId) return; if (confirm('Czy na pewno chcesz usunąć tę notatkę?')) { await supabase.from('notes').delete().eq('id', currentNoteId); clearEditor(); renderNotes(); } };
+
+        renderAdminTasks();
+        renderAdminOrders();
+        renderNotes();
     }
     
-    // --- SKRÓCONY KOD DLA CZYTELNOŚCI ---
-    const fullInitAdminView = initAdminView;
-    initAdminView = () => { /* Pełny kod z poprzedniej odpowiedzi */ };
-
+    // --- INITIALIZE THE APP ---
     document.addEventListener('DOMContentLoaded', () => {
         initUserView();
         
