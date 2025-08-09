@@ -197,9 +197,10 @@
         }
         .dark-mode .note-list-date { color: #aaa; }
         .note-list-item:hover { background-color: rgba(0, 0, 0, 0.05); }
-        .note-list-item.selected { background-color: #e0e0e0; color: #1c1c1c; }
+        /* ZMIANA: Ciemniejszy kolor podświetlenia */
+        .note-list-item.selected { background-color: #cccccc; color: #1c1c1c; }
         .dark-mode .note-list-item:hover { background-color: rgba(255, 255, 255, 0.05); }
-        .dark-mode .note-list-item.selected { background-color: #424242; color: #e0e0e0; }
+        .dark-mode .note-list-item.selected { background-color: #383838; color: #e0e0e0; }
         .note-actions { display: flex; align-items: center; }
         .note-pin-btn, .note-publish-btn { cursor: pointer; opacity: 0.6; font-size: 1.1em; margin-left: 10px; }
         .note-pin-btn:hover, .note-publish-btn:hover { opacity: 1; }
@@ -282,7 +283,7 @@
                 <a onclick="showPage('admin-notes')">Notatnik</a>
                 <a onclick="switchToUser()">Panel użytkownika</a>
             </div>
-             <div class="nav-actions">
+            <div class="nav-actions">
                 <button class="refresh-btn" title="Odśwież dane">🔄</button>
                 <button class="theme-toggle-btn"></button>
             </div>
@@ -440,6 +441,7 @@
             taskList.appendChild(itemDiv);
         });
     }
+
     async function renderUserOrders() {
         const { data: orders, error } = await supabase.from('orders').select('*').eq('is_completed', false).order('created_at', { ascending: true });
         const orderList = document.getElementById('user-order-list');
@@ -473,6 +475,7 @@
             orderList.appendChild(itemDiv);
         });
     }
+
     async function renderUserNotes() { 
         const userNoteTitleList = document.getElementById('user-note-title-list');
         const { data: notes, error } = await supabase.from('notes').select('*').eq('is_public', true).order('is_pinned', { ascending: false }).order('updated_at', { ascending: true }); 
@@ -516,6 +519,7 @@
         const currentUserNoteId = document.getElementById('user-note-title-input').dataset.currentId;
         if(currentUserNoteId) { const selectedItem = userNoteTitleList.querySelector(`[data-note-id='${currentUserNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); } 
     }
+
     async function renderAdminTasks() {
         const adminTaskList = document.getElementById('admin-task-list-visible');
         const adminHiddenTaskList = document.getElementById('admin-task-list-hidden');
@@ -557,6 +561,7 @@
             (task.visible === false ? adminHiddenTaskList : adminTaskList).appendChild(div);
         });
     }
+
     async function renderAdminOrders() {
         const { data: orders, error } = await supabase.from('orders').select('*').order('created_at', { ascending: true });
         const activeList = document.getElementById('admin-order-list-active');
@@ -595,6 +600,7 @@
             if(order.is_completed) { completedList.appendChild(itemDiv); } else { activeList.appendChild(itemDiv); }
         });
     }
+
     async function renderNotes() { 
         const noteTitleList = document.getElementById('note-title-list');
         const { data, error } = await supabase.from('notes').select('*').order('is_pinned', { ascending: false }).order('updated_at', { ascending: true }); 
@@ -640,6 +646,7 @@
         const currentNoteId = document.getElementById('note-title-input').dataset.currentId;
         if(currentNoteId) { const selectedItem = noteTitleList.querySelector(`[data-note-id='${currentNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); } 
     }
+
     async function refreshAllData() {
         console.log("Odświeżanie danych...");
         const userPromises = [ renderSupabaseTasks(), renderUserOrders(), renderUserNotes() ];
@@ -657,6 +664,7 @@
     function clearUserEditor() { const userNoteTitleList = document.getElementById('user-note-title-list'); const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'), userNoteTimestamps = document.getElementById('user-note-timestamps'); currentUserNoteId = null; userNoteTitleInput.value = ''; userNoteContentInput.value = ''; userNoteColorInput.value = '#000000'; userNoteTimestamps.innerHTML = ''; userNoteTitleInput.removeAttribute('data-current-id'); const selected = userNoteTitleList.querySelector('.selected'); if(selected) selected.classList.remove('selected'); }
     function loadUserNoteIntoEditor(note) { const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'), userNoteTimestamps = document.getElementById('user-note-timestamps'); currentUserNoteId = note.id; userNoteTitleInput.setAttribute('data-current-id', note.id); userNoteTitleInput.value = note.title; userNoteContentInput.value = note.content; userNoteColorInput.value = note.title_color || '#000000'; const created = new Date(note.created_at).toLocaleString('pl-PL'); const updated = note.updated_at ? new Date(note.updated_at).toLocaleString('pl-PL') : '---'; userNoteTimestamps.innerHTML = `Utworzono: ${created} | Ost. edycja: ${updated}`; document.getElementById('user-note-title-list').querySelectorAll('.note-list-item').forEach(item => { item.classList.toggle('selected', item.dataset.noteId == note.id); }); }
     async function saveUserNote() { const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'); const title = userNoteTitleInput.value, content = userNoteContentInput.value, title_color = userNoteColorInput.value; if (!title) { alert('Tytuł notatki jest wymagany.'); return; } if (currentUserNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentUserNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color, is_public: true }]).select(); if(data && data.length > 0) { currentUserNoteId = data[0].id; } } renderUserNotes(); }
+    
     function initUserView() {
         document.getElementById('user-order-form').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('user-order-name').value; const supplier = document.getElementById('user-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); e.target.reset(); renderUserOrders(); });
         document.getElementById('user-new-note-btn').onclick = clearUserEditor;
