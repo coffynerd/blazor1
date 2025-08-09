@@ -290,7 +290,7 @@
             <div id="admin-task-list-hidden"></div>
         </div>
         <div id="admin-order" class="content">
-             <h2>Do zamówienia (Admin)</h2>
+            <h2>Do zamówienia (Admin)</h2>
              <form id="admin-order-form">
                 <input type="text" id="admin-order-name" placeholder="Nazwa produktu" required>
                 <input type="text" id="admin-order-supplier" placeholder="Dostawca">
@@ -313,10 +313,7 @@
             <div class="notebook-container">
                 <div class="note-list-column">
                     <button id="new-note-btn">+ Nowa notatka</button>
-                    <h3>Notatki</h3>
-                    <div id="note-title-list-visible">Ładowanie...</div>
-                    <h3>Ukryte</h3>
-                    <div id="note-title-list-hidden"></div>
+                    <div id="note-title-list">Ładowanie...</div>
                 </div>
                 <div class="note-editor-column">
                     <div class="editor-header">
@@ -637,7 +634,7 @@
                 item.appendChild(titleWrapper); 
                 item.appendChild(actionsWrapper); 
                 item.onclick = () => loadNoteIntoEditor(note); 
-                noteTitleList.appendChild(item); 
+                noteTitleList.appendChild(item);
             }); 
             if(currentNoteId) { const selectedItem = noteTitleList.querySelector(`[data-note-id='${currentNoteId}']`); if(selectedItem) selectedItem.classList.add('selected'); } 
         }
