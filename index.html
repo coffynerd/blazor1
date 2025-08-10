@@ -810,7 +810,7 @@
             pinBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id); renderNotes(); }; 
             const publishBtn = document.createElement('span'); 
             publishBtn.classList.add('note-publish-btn'); 
-            publishBtn.innerHTML = note.is_public ? '🔓' : '�'; 
+            publishBtn.innerHTML = note.is_public ? '🔓' : '🔒'; 
             publishBtn.title = note.is_public ? 'Uczyń prywatną' : 'Upublicznij'; 
             publishBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_public: !note.is_public }).eq('id', note.id); renderNotes(); }; 
             actionsWrapper.appendChild(pinBtn); 
@@ -969,4 +969,3 @@
 </script>
 </body>
 </html>
-�
