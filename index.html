@@ -25,11 +25,13 @@
             transition: background-color 0.3s, color 0.3s;
         }
         .nav-bar {
-            overflow: hidden;
+            overflow: visible; /* Changed from hidden for mobile menu */
             padding: 0 20px;
             color: white;
             display: flex;
             align-items: center;
+            justify-content: space-between; /* Changed for mobile */
+            position: relative;
         }
         .nav-links {
             flex-grow: 1;
@@ -65,6 +67,14 @@
             padding: 0 10px;
             color: white;
         }
+        .hamburger-btn {
+            display: none; /* Hidden by default */
+            font-size: 1.8em;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: white;
+        }
         .content {
             padding: 20px 30px;
             display: none;
@@ -78,6 +88,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 10px;
         }
         .item-row.done {
             color: red;
@@ -98,9 +110,9 @@
             text-decoration: none;
         }
         .item-content-wrapper {
-             display: flex;
-             align-items: center;
-             flex-grow: 1;
+              display: flex;
+              align-items: center;
+              flex-grow: 1;
         }
         .assignees, .supplier-info {
             color: #555;
@@ -129,6 +141,7 @@
         }
         form input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
         button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #004896; transition: background-color 0.3s; }
+        button:disabled { background-color: #aaa; cursor: not-allowed; }
         .item-row button { background-color: #6c757d; font-size: 0.8em; padding: 5px 8px; }
         .google-sheet-iframe {
             width: 100%;
@@ -182,6 +195,7 @@
         /* --- STYLE DLA NOTATNIKA --- */
         .notebook-container { display: flex; gap: 20px; height: 80vh; }
         .note-list-column { flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border-light); padding-right: 20px; }
+        .dark-mode .note-list-column { border-right-color: var(--border-dark); }
         .note-editor-column { flex: 3; display: flex; flex-direction: column; }
         #new-note-btn, #user-new-note-btn { width: 100%; margin: 0 0 10px 0; }
         #note-title-list, #user-note-title-list { overflow-y: auto; }
@@ -197,7 +211,6 @@
         }
         .dark-mode .note-list-date { color: #aaa; }
         .note-list-item:hover { background-color: rgba(0, 0, 0, 0.05); }
-        /* ZMIANA: Ciemniejszy kolor podświetlenia */
         .note-list-item.selected { background-color: #cccccc; color: #1c1c1c; }
         .dark-mode .note-list-item:hover { background-color: rgba(255, 255, 255, 0.05); }
         .dark-mode .note-list-item.selected { background-color: #383838; color: #e0e0e0; }
@@ -217,13 +230,102 @@
         #admin-notes button:hover { background-color: #5a6268; }
         #delete-note-btn { background-color: #dc3545; }
         #delete-note-btn:hover { background-color: #c82333; }
+        .gemini-btn { background-color: #4a90e2; }
+        .gemini-btn:hover:not(:disabled) { background-color: #357abd; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal-content {
+            background: var(--surface-light); color: var(--text-light); padding: 20px; border-radius: 8px; text-align: center; max-width: 90%; width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .dark-mode .modal-content { background: var(--surface-dark); color: var(--text-dark); }
+        .modal-content h4 { margin-top: 0; }
+        .modal-content p { white-space: pre-wrap; }
+
+        /* --- MOBILE STYLES --- */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: 100%;
+                background-color: inherit;
+                z-index: 1000;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            }
+            .nav-links.open {
+                display: flex;
+            }
+            .nav-bar a {
+                float: none;
+                text-align: left;
+            }
+            .nav-bar .nav-links {
+                flex-grow: 0; /* Reset flex-grow */
+            }
+            .hamburger-btn {
+                display: block;
+            }
+            .nav-bar .nav-actions {
+                order: 2; /* Move actions to the right */
+            }
+            .nav-bar .nav-links {
+                order: 3; /* Ensure links are below */
+                width: 100%;
+            }
+            .nav-bar::before { /* Pseudo-element for title */
+                content: "Lista Zadań";
+                order: 1;
+                flex-grow: 1;
+                text-align: left;
+            }
+            .notebook-container {
+                flex-direction: column;
+                height: 75vh; /* Adjusted height for mobile */
+            }
+            .note-list-column {
+                border-right: none;
+                padding-right: 0;
+                border-bottom: 1px solid var(--border-light);
+                padding-bottom: 20px;
+                margin-bottom: 20px;
+                flex-shrink: 0; /* Prevent list from shrinking */
+                max-height: 30%; /* Limit list height */
+            }
+            .dark-mode .note-list-column {
+                border-bottom-color: var(--border-dark);
+            }
+            .content {
+                padding: 15px;
+            }
+            .order-item .order-buttons {
+                width: 100%;
+                text-align: left;
+                padding-top: 5px;
+            }
+            .order-item .order-buttons button {
+                margin-left: 0;
+                margin-right: 10px;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Modal for alerts and AI responses -->
+    <div id="modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h4 id="modal-title"></h4>
+            <p id="modal-text"></p>
+            <button id="modal-close-btn">Zamknij</button>
+        </div>
+    </div>
 
     <div id="user-view">
         <div class="nav-bar blue-nav">
-            <div class="nav-links">
+            <div class="nav-links" id="user-nav-links">
                 <a onclick="showPage('user-tasks')">Lista zadań</a>
                 <a onclick="showPage('user-order')">Do zamówienia</a>
                 <a onclick="showPage('user-schedule')">Grafik</a>
@@ -233,6 +335,7 @@
             <div class="nav-actions">
                 <button class="refresh-btn" title="Odśwież dane">🔄</button>
                 <button class="theme-toggle-btn"></button>
+                <button class="hamburger-btn" id="user-hamburger-btn">☰</button>
             </div>
         </div>
         <div id="user-tasks" class="content active">
@@ -267,6 +370,8 @@
                     <textarea id="user-note-content-input" placeholder="Treść notatki..."></textarea>
                     <div id="user-note-timestamps"></div>
                     <div class="note-editor-buttons">
+                        <button id="user-summarize-note-btn" class="gemini-btn">✨ Podsumuj</button>
+                        <button id="user-continue-note-btn" class="gemini-btn">✨ Kontynuuj</button>
                         <button id="user-save-note-btn">Zapisz</button>
                     </div>
                 </div>
@@ -276,7 +381,7 @@
 
     <div id="admin-view" style="display: none;">
         <div class="nav-bar gray-nav">
-            <div class="nav-links">
+            <div class="nav-links" id="admin-nav-links">
                 <a onclick="showPage('admin-tasks')">Lista zadań</a>
                 <a onclick="showPage('admin-order')">Do zamówienia</a>
                 <a onclick="showPage('admin-schedule')">Grafik</a>
@@ -286,6 +391,7 @@
             <div class="nav-actions">
                 <button class="refresh-btn" title="Odśwież dane">🔄</button>
                 <button class="theme-toggle-btn"></button>
+                <button class="hamburger-btn" id="admin-hamburger-btn">☰</button>
             </div>
         </div>
         <div id="admin-tasks" class="content">
@@ -295,6 +401,7 @@
                 <input type="text" id="admin-task-input" placeholder="Treść zadania" required>
                 <input type="text" id="admin-assignee-input" placeholder="Pracownicy (oddzieleni średnikiem)">
                 <button type="submit">Dodaj</button>
+                <button type="button" id="gemini-breakdown-btn" class="gemini-btn">✨ Podziel na podzadania</button>
             </form>
             <h3>Lista zadań</h3>
             <div id="admin-task-list-visible">Ładowanie...</div>
@@ -335,6 +442,8 @@
                     <textarea id="note-content-input" placeholder="Treść notatki..."></textarea>
                     <div id="note-timestamps"></div>
                     <div class="note-editor-buttons">
+                        <button id="summarize-note-btn" class="gemini-btn">✨ Podsumuj</button>
+                        <button id="continue-note-btn" class="gemini-btn">✨ Kontynuuj</button>
                         <button id="delete-note-btn">Usuń</button>
                         <button id="save-note-btn">Zapisz</button>
                     </div>
@@ -352,9 +461,75 @@
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // --- UI UTILITIES ---
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalText = document.getElementById('modal-text');
+    document.getElementById('modal-close-btn').onclick = () => modal.style.display = 'none';
+
+    function showModal(title, text) {
+        modalTitle.textContent = title;
+        modalText.textContent = text;
+        modal.style.display = 'flex';
+    }
+    
+    function setButtonLoading(button, isLoading, originalText = '') {
+        if (isLoading) {
+            button.disabled = true;
+            button.dataset.originalText = button.textContent;
+            button.textContent = 'Przetwarzanie...';
+        } else {
+            button.disabled = false;
+            button.textContent = button.dataset.originalText || originalText;
+        }
+    }
+    
+    // --- GEMINI API HELPER ---
+    async function callGemini(prompt, retries = 3, delay = 1000) {
+        const apiKey = ""; // API key will be injected by the environment
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        
+        const payload = { 
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                if (response.status === 429 && retries > 0) {
+                    console.warn(`Throttled. Retrying in ${delay / 1000}s...`);
+                    await new Promise(res => setTimeout(res, delay));
+                    return callGemini(prompt, retries - 1, delay * 2);
+                }
+                throw new Error(`Błąd HTTP! Status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                return JSON.parse(result.candidates[0].content.parts[0].text);
+            } else {
+                console.error("Unexpected Gemini API response structure:", result);
+                throw new Error("Nie udało się uzyskać poprawnej odpowiedzi z AI.");
+            }
+        } catch (error) {
+            console.error("Błąd podczas wywołania Gemini API:", error);
+            throw error;
+        }
+    }
+
+
     function showPage(pageId) {
         document.querySelectorAll('.content').forEach(div => div.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
+        // Close mobile menu on navigation
+        document.getElementById('user-nav-links').classList.remove('open');
+        document.getElementById('admin-nav-links').classList.remove('open');
     }
 
     const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
@@ -366,7 +541,7 @@
         document.body.classList.toggle('dark-mode');
         updateThemeIcon();
     }
-
+    
     const passwordActions = {
         'admin': () => {
             document.getElementById('user-view').style.display = 'none';
@@ -379,7 +554,7 @@
         'minecraft': () => window.location.href = 'https://classic.minecraft.net',
         'help': () => {
             const availablePasswords = Object.keys(passwordActions).filter(p => p !== 'help');
-            alert('Dostępne hasła:\n- ' + availablePasswords.join('\n- '));
+            showModal('Dostępne Hasła', '- ' + availablePasswords.join('\n- '));
         }
     };
 
@@ -389,7 +564,7 @@
         if (passwordActions.hasOwnProperty(password)) {
             passwordActions[password]();
         } else {
-            alert("Niepoprawne hasło!");
+            showModal("Błąd", "Niepoprawne hasło!");
         }
     }
 
@@ -423,7 +598,7 @@
             checkbox.type = 'checkbox';
             checkbox.checked = task.done;
             checkbox.style.marginRight = '10px';
-            checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ alert('Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { itemDiv.classList.toggle('done', checkbox.checked); if (isPriority && checkbox.checked) { const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav'); audio.play(); } } });
+            checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ showModal('Błąd', 'Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { itemDiv.classList.toggle('done', checkbox.checked); if (isPriority && checkbox.checked) { const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav'); audio.play(); } } });
             const taskContent = document.createElement('span');
             taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
             contentWrapper.appendChild(checkbox);
@@ -461,6 +636,7 @@
             dateInfo.classList.add('date-info');
             dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
             const buttonsDiv = document.createElement('div');
+            buttonsDiv.classList.add('order-buttons');
             const doneBtn = document.createElement('button');
             doneBtn.textContent = 'Zamówione';
             doneBtn.onclick = async () => { await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); renderUserOrders(); };
@@ -540,7 +716,7 @@
             checkbox.type = 'checkbox';
             checkbox.checked = task.done;
             checkbox.style.marginRight = '10px';
-            checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ alert('Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { div.classList.toggle('done', checkbox.checked); } });
+            checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ showModal('Błąd', 'Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { div.classList.toggle('done', checkbox.checked); } });
             const label = document.createElement('label');
             const taskText = isPriority ? task.content.substring(3).trim() : task.content;
             const dateString = task.created_at ? ` | ${new Date(task.created_at).toLocaleDateString('pl-PL')}` : '';
@@ -584,6 +760,7 @@
             dateInfo.classList.add('date-info');
             dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
             const buttonsDiv = document.createElement('div');
+            buttonsDiv.classList.add('order-buttons');
             if (!order.is_completed) {
                 const doneBtn = document.createElement('button');
                 doneBtn.textContent = 'Zamówione';
@@ -633,7 +810,7 @@
             pinBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id); renderNotes(); }; 
             const publishBtn = document.createElement('span'); 
             publishBtn.classList.add('note-publish-btn'); 
-            publishBtn.innerHTML = note.is_public ? '🔓' : '🔒'; 
+            publishBtn.innerHTML = note.is_public ? '🔓' : '�'; 
             publishBtn.title = note.is_public ? 'Uczyń prywatną' : 'Upublicznij'; 
             publishBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_public: !note.is_public }).eq('id', note.id); renderNotes(); }; 
             actionsWrapper.appendChild(pinBtn); 
@@ -663,12 +840,54 @@
     let currentUserNoteId = null;
     function clearUserEditor() { const userNoteTitleList = document.getElementById('user-note-title-list'); const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'), userNoteTimestamps = document.getElementById('user-note-timestamps'); currentUserNoteId = null; userNoteTitleInput.value = ''; userNoteContentInput.value = ''; userNoteColorInput.value = '#000000'; userNoteTimestamps.innerHTML = ''; userNoteTitleInput.removeAttribute('data-current-id'); const selected = userNoteTitleList.querySelector('.selected'); if(selected) selected.classList.remove('selected'); }
     function loadUserNoteIntoEditor(note) { const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'), userNoteTimestamps = document.getElementById('user-note-timestamps'); currentUserNoteId = note.id; userNoteTitleInput.setAttribute('data-current-id', note.id); userNoteTitleInput.value = note.title; userNoteContentInput.value = note.content; userNoteColorInput.value = note.title_color || '#000000'; const created = new Date(note.created_at).toLocaleString('pl-PL'); const updated = note.updated_at ? new Date(note.updated_at).toLocaleString('pl-PL') : '---'; userNoteTimestamps.innerHTML = `Utworzono: ${created} | Ost. edycja: ${updated}`; document.getElementById('user-note-title-list').querySelectorAll('.note-list-item').forEach(item => { item.classList.toggle('selected', item.dataset.noteId == note.id); }); }
-    async function saveUserNote() { const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'); const title = userNoteTitleInput.value, content = userNoteContentInput.value, title_color = userNoteColorInput.value; if (!title) { alert('Tytuł notatki jest wymagany.'); return; } if (currentUserNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentUserNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color, is_public: true }]).select(); if(data && data.length > 0) { currentUserNoteId = data[0].id; } } renderUserNotes(); }
+    async function saveUserNote() { 
+        const userNoteTitleInput = document.getElementById('user-note-title-input'), userNoteColorInput = document.getElementById('user-note-color-input'), userNoteContentInput = document.getElementById('user-note-content-input'); 
+        const title = userNoteTitleInput.value, content = userNoteContentInput.value, title_color = userNoteColorInput.value; 
+        if (!title) { showModal('Błąd', 'Tytuł notatki jest wymagany.'); return; } 
+        if (currentUserNoteId) { 
+            await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentUserNoteId); 
+        } else { 
+            const { data } = await supabase.from('notes').insert([{ title, content, title_color, is_public: true }]).select(); 
+            if(data && data.length > 0) {
+                currentUserNoteId = data[0].id; 
+            }
+        } 
+        renderUserNotes(); 
+    }
     
+    async function handleNoteGeminiAction(button, contentInput, promptGenerator) {
+        if (!contentInput.value) {
+            showModal("Informacja", "Notatka jest pusta.");
+            return;
+        }
+        setButtonLoading(button, true);
+        try {
+            const prompt = promptGenerator(contentInput.value);
+            const result = await callGemini(prompt);
+            if (result.summary) {
+                showModal("Podsumowanie AI", result.summary);
+            } else if (result.continuation) {
+                contentInput.value += `\n${result.continuation}`;
+            }
+        } catch (error) {
+            showModal("Błąd AI", `Nie udało się przetworzyć Twojego żądania. Błąd: ${error.message}`);
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
     function initUserView() {
         document.getElementById('user-order-form').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('user-order-name').value; const supplier = document.getElementById('user-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); e.target.reset(); renderUserOrders(); });
         document.getElementById('user-new-note-btn').onclick = clearUserEditor;
         document.getElementById('user-save-note-btn').onclick = saveUserNote;
+        
+        const userSummarizeBtn = document.getElementById('user-summarize-note-btn');
+        const userContinueBtn = document.getElementById('user-continue-note-btn');
+        const userContentInput = document.getElementById('user-note-content-input');
+        
+        userSummarizeBtn.onclick = () => handleNoteGeminiAction(userSummarizeBtn, userContentInput, (text) => `Podsumuj następujący tekst w jednym lub dwóch zdaniach. Zwróć odpowiedź jako obiekt JSON z kluczem "summary": ${text}`);
+        userContinueBtn.onclick = () => handleNoteGeminiAction(userContinueBtn, userContentInput, (text) => `Kontynuuj pisanie tego tekstu, zachowując ten sam styl i ton. Zwróć odpowiedź jako obiekt JSON z kluczem "continuation": ${text}`);
+
         refreshAllData();
     }
 
@@ -676,15 +895,59 @@
     let currentAdminNoteId = null;
     function clearAdminEditor() { const adminNoteTitleInput = document.getElementById('note-title-input'), adminNoteColorInput = document.getElementById('note-color-input'), adminNoteContentInput = document.getElementById('note-content-input'), adminNoteTimestamps = document.getElementById('note-timestamps'); currentAdminNoteId = null; adminNoteTitleInput.value = ''; adminNoteContentInput.value = ''; adminNoteColorInput.value = '#000000'; adminNoteTimestamps.innerHTML = ''; adminNoteTitleInput.removeAttribute('data-current-id'); const selected = document.getElementById('note-title-list').querySelector('.selected'); if(selected) selected.classList.remove('selected'); }
     function loadAdminNoteIntoEditor(note) { const adminNoteTitleInput = document.getElementById('note-title-input'), adminNoteColorInput = document.getElementById('note-color-input'), adminNoteContentInput = document.getElementById('note-content-input'), adminNoteTimestamps = document.getElementById('note-timestamps'); currentAdminNoteId = note.id; adminNoteTitleInput.setAttribute('data-current-id', note.id); adminNoteTitleInput.value = note.title; adminNoteContentInput.value = note.content; adminNoteColorInput.value = note.title_color || '#000000'; const created = new Date(note.created_at).toLocaleString('pl-PL'); const updated = note.updated_at ? new Date(note.updated_at).toLocaleString('pl-PL') : '---'; adminNoteTimestamps.innerHTML = `Utworzono: ${created} | Ost. edycja: ${updated}`; document.getElementById('note-title-list').querySelectorAll('.note-list-item').forEach(item => { item.classList.toggle('selected', item.dataset.noteId == note.id); }); }
-    async function saveAdminNote() { const adminNoteTitleInput = document.getElementById('note-title-input'), adminNoteColorInput = document.getElementById('note-color-input'), adminNoteContentInput = document.getElementById('note-content-input'); const title = adminNoteTitleInput.value, content = adminNoteContentInput.value, title_color = adminNoteColorInput.value; if (!title) { alert('Tytuł notatki jest wymagany.'); return; } if (currentAdminNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentAdminNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color }]).select(); if(data && data.length > 0) { currentAdminNoteId = data[0].id; loadAdminNoteIntoEditor(data[0]); } } renderNotes(); }
+    async function saveAdminNote() { const adminNoteTitleInput = document.getElementById('note-title-input'), adminNoteColorInput = document.getElementById('note-color-input'), adminNoteContentInput = document.getElementById('note-content-input'); const title = adminNoteTitleInput.value, content = adminNoteContentInput.value, title_color = adminNoteColorInput.value; if (!title) { showModal('Błąd', 'Tytuł notatki jest wymagany.'); return; } if (currentAdminNoteId) { await supabase.from('notes').update({ title, content, title_color, updated_at: new Date() }).eq('id', currentAdminNoteId); } else { const { data } = await supabase.from('notes').insert([{ title, content, title_color }]).select(); if(data && data.length > 0) { currentAdminNoteId = data[0].id; loadAdminNoteIntoEditor(data[0]); } } renderNotes(); }
     async function deleteAdminNote() { if (!currentAdminNoteId) return; if (confirm('Czy na pewno chcesz usunąć tę notatkę?')) { await supabase.from('notes').delete().eq('id', currentAdminNoteId); clearAdminEditor(); renderNotes(); } }
     
     function initAdminView() {
         document.getElementById('admin-task-form').addEventListener('submit', async (e) => { e.preventDefault(); const content = document.getElementById('admin-task-input').value.trim(); const assignees = document.getElementById('admin-assignee-input').value.trim(); if (!content) return; await supabase.from('tasks').insert([{ content, assignees, done: false, visible: true }]); e.target.reset(); renderAdminTasks(); });
         document.getElementById('admin-order-form').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('admin-order-name').value; const supplier = document.getElementById('admin-order-supplier').value; await supabase.from('orders').insert([{ name, supplier }]); e.target.reset(); renderAdminOrders(); });
+        
+        const breakdownBtn = document.getElementById('gemini-breakdown-btn');
+        breakdownBtn.addEventListener('click', async () => {
+            const taskInput = document.getElementById('admin-task-input');
+            const mainTask = taskInput.value.trim();
+            if (!mainTask) {
+                showModal("Błąd", "Wpisz główne zadanie, które chcesz podzielić.");
+                return;
+            }
+            
+            setButtonLoading(breakdownBtn, true);
+            try {
+                const prompt = `Podziel następujące zadanie na listę mniejszych podzadań, które można wykonać. Zwróć odpowiedź jako tablicę JSON zawierającą tylko ciągi znaków, na przykład: ["podzadanie 1", "podzadanie 2"]. Zadanie: ${mainTask}`;
+                const subtasks = await callGemini(prompt);
+
+                if (Array.isArray(subtasks) && subtasks.length > 0) {
+                    const assignees = document.getElementById('admin-assignee-input').value.trim();
+                    const tasksToInsert = subtasks.map(subtask => ({
+                        content: subtask,
+                        assignees: assignees,
+                        done: false,
+                        visible: true
+                    }));
+                    await supabase.from('tasks').insert(tasksToInsert);
+                    taskInput.value = '';
+                    renderAdminTasks();
+                } else {
+                    showModal("Błąd AI", "Nie udało się podzielić zadania. Model zwrócił nieoczekiwany format. Spróbuj ponownie z innym opisem.");
+                }
+            } catch (error) {
+                showModal("Błąd AI", `Nie udało się podzielić zadania. Błąd: ${error.message}`);
+            } finally {
+                setButtonLoading(breakdownBtn, false);
+            }
+        });
+
         document.getElementById('new-note-btn').onclick = clearAdminEditor;
         document.getElementById('save-note-btn').onclick = saveAdminNote;
         document.getElementById('delete-note-btn').onclick = deleteAdminNote;
+        
+        const adminSummarizeBtn = document.getElementById('summarize-note-btn');
+        const adminContinueBtn = document.getElementById('continue-note-btn');
+        const adminContentInput = document.getElementById('note-content-input');
+
+        adminSummarizeBtn.onclick = () => handleNoteGeminiAction(adminSummarizeBtn, adminContentInput, (text) => `Podsumuj następujący tekst w jednym lub dwóch zdaniach. Zwróć odpowiedź jako obiekt JSON z kluczem "summary": ${text}`);
+        adminContinueBtn.onclick = () => handleNoteGeminiAction(adminContinueBtn, adminContentInput, (text) => `Kontynuuj pisanie tego tekstu, zachowując ten sam styl i ton. Zwróć odpowiedź jako obiekt JSON z kluczem "continuation": ${text}`);
+
         refreshAllData();
     }
     
@@ -694,7 +957,16 @@
         document.querySelectorAll('.refresh-btn').forEach(btn => btn.addEventListener('click', refreshAllData));
         themeToggleButtons.forEach(btn => btn.addEventListener('click', toggleTheme));
         updateThemeIcon();
+
+        // Hamburger Menu Logic
+        document.getElementById('user-hamburger-btn').addEventListener('click', () => {
+            document.getElementById('user-nav-links').classList.toggle('open');
+        });
+        document.getElementById('admin-hamburger-btn').addEventListener('click', () => {
+            document.getElementById('admin-nav-links').classList.toggle('open');
+        });
     });
 </script>
 </body>
 </html>
+�
