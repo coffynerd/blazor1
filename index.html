@@ -533,10 +533,10 @@
         return text.split('\n').map(line => {
             const trimmedLine = line.trim();
             if (trimmedLine.startsWith('# ')) {
-                return `<div><input type="checkbox" onchange="this.parentNode.textContent = this.checked ? '& ' + this.parentNode.textContent.substring(2) : '# ' + this.parentNode.textContent.substring(2)">${line.substring(2)}</div>`;
+                return `<div><input type="checkbox">${line.substring(2)}</div>`;
             }
             if (trimmedLine.startsWith('& ')) {
-                return `<div><input type="checkbox" checked onchange="this.parentNode.textContent = this.checked ? '& ' + this.parentNode.textContent.substring(2) : '# ' + this.parentNode.textContent.substring(2)">${line.substring(2)}</div>`;
+                return `<div><input type="checkbox" checked>${line.substring(2)}</div>`;
             }
             return `<div>${line}</div>`;
         }).join('');
