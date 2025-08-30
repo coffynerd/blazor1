@@ -249,6 +249,19 @@
         .modal-content h4 { margin-top: 0; }
         .modal-content p { white-space: pre-wrap; }
 
+        /* --- SUBTASK STYLES --- */
+        .subtask {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 5px;
+        }
+        .subtask-text.done {
+            text-decoration: line-through;
+        }
+        .task-text-container {
+             display: inline;
+        }
+
         /* --- MOBILE STYLES --- */
         @media (max-width: 768px) {
             .nav-links {
@@ -583,6 +596,18 @@
         return lines.join('\n');
     }
 
+    // --- TASK HELPERS ---
+    function parseTaskContent(content) {
+        if (!content) return '';
+        const subtaskRegex = /\((#|&)(.*?)\)/g;
+        let index = 0;
+        return content.replace(subtaskRegex, (match, sign, text) => {
+            const isChecked = sign === '&';
+            const textSpan = `<span class="subtask-text ${isChecked ? 'done' : ''}">${text}</span>`;
+            const checkbox = `<input type="checkbox" class="subtask-checkbox" data-index="${index++}" ${isChecked ? 'checked' : ''}>`;
+            return `<span class="subtask">${checkbox}${textSpan}</span>`;
+        });
+    }
 
     // --- RENDER FUNCTIONS (GLOBAL SCOPE) ---
 
@@ -598,17 +623,30 @@
             itemDiv.classList.add('item-row', 'task-item');
             itemDiv.classList.toggle('done', task.done);
             if (isPriority) itemDiv.classList.add('priority');
+            itemDiv.dataset.taskId = task.id;
+            itemDiv.dataset.fullContent = task.content;
+
             const contentWrapper = document.createElement('div');
             contentWrapper.classList.add('item-content-wrapper');
+
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.checked = task.done;
             checkbox.style.marginRight = '10px';
             checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ showModal('Błąd', 'Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { itemDiv.classList.toggle('done', checkbox.checked); if (isPriority && checkbox.checked) { const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav'); audio.play(); } } });
+            
             const taskContent = document.createElement('span');
-            taskContent.textContent = isPriority ? task.content.substring(3).trim() : task.content;
+            taskContent.classList.add('task-text-container');
+            
+            let contentToParse = task.content;
+            if (isPriority) {
+                contentToParse = task.content.substring(3).trim();
+            }
+            taskContent.innerHTML = parseTaskContent(contentToParse);
+            
             contentWrapper.appendChild(checkbox);
             contentWrapper.appendChild(taskContent);
+            
             const rightSideInfo = document.createElement('div');
             rightSideInfo.classList.add('right-aligned-info');
             const assignees = document.createElement('div');
@@ -716,19 +754,37 @@
             div.classList.add('item-row', 'task-item');
             div.classList.toggle('done', task.done);
             if(isPriority) div.classList.add('priority');
+            div.dataset.taskId = task.id;
+            div.dataset.fullContent = task.content;
+
             const contentWrapper = document.createElement('div');
             contentWrapper.classList.add('item-content-wrapper');
+
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.checked = task.done;
             checkbox.style.marginRight = '10px';
             checkbox.addEventListener('change', async () => { const { error } = await supabase.from('tasks').update({ done: checkbox.checked }).eq('id', task.id); if(error){ showModal('Błąd', 'Błąd aktualizacji!'); checkbox.checked = !checkbox.checked; } else { div.classList.toggle('done', checkbox.checked); } });
+            
             const label = document.createElement('label');
-            const taskText = isPriority ? task.content.substring(3).trim() : task.content;
+            let taskText = task.content;
+            if (isPriority) {
+                taskText = task.content.substring(3).trim();
+            }
+
+            const taskTextSpan = document.createElement('span');
+            taskTextSpan.innerHTML = parseTaskContent(taskText);
+
+            const otherInfoSpan = document.createElement('span');
             const dateString = task.created_at ? ` | ${new Date(task.created_at).toLocaleDateString('pl-PL')}` : '';
-            label.textContent = `${taskText} (Przypisani: ${task.assignees || 'brak'}) ${dateString}`;
+            otherInfoSpan.textContent = ` (Przypisani: ${task.assignees || 'brak'}) ${dateString}`;
+            
+            label.appendChild(taskTextSpan);
+            label.appendChild(otherInfoSpan);
+            
             contentWrapper.appendChild(checkbox);
             contentWrapper.appendChild(label);
+
             const buttonsDiv = document.createElement('div');
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edytuj';
@@ -924,6 +980,59 @@
         refreshAllData();
     }
     
+    function setupTaskListeners() {
+        const taskLists = [
+            document.getElementById('supabase-task-list'),
+            document.getElementById('admin-task-list-visible'),
+            document.getElementById('admin-task-list-hidden')
+        ];
+
+        taskLists.forEach(list => {
+            if (!list) return;
+            list.addEventListener('change', async (e) => {
+                if (e.target.classList.contains('subtask-checkbox')) {
+                    const checkbox = e.target;
+                    const textSpan = checkbox.nextElementSibling;
+                    const taskRow = checkbox.closest('.item-row');
+                    
+                    if (!taskRow) return;
+
+                    const taskId = taskRow.dataset.taskId;
+                    let fullContent = taskRow.dataset.fullContent;
+                    const clickedIndex = parseInt(checkbox.dataset.index, 10);
+                    const isChecked = checkbox.checked;
+
+                    textSpan.classList.toggle('done', isChecked);
+
+                    const subtaskRegex = /\((#|&)(.*?)\)/g;
+                    let currentIndex = 0;
+                    const newContent = fullContent.replace(subtaskRegex, (match, sign, text) => {
+                        if (currentIndex === clickedIndex) {
+                            const newSign = isChecked ? '&' : '#';
+                            return `(${newSign}${text})`;
+                        }
+                        currentIndex++;
+                        return match;
+                    });
+                    
+                    taskRow.dataset.fullContent = newContent;
+
+                    const { error } = await supabase
+                        .from('tasks')
+                        .update({ content: newContent })
+                        .eq('id', taskId);
+
+                    if (error) {
+                        showModal('Błąd', 'Nie udało się zaktualizować podzadania.');
+                        checkbox.checked = !isChecked;
+                        textSpan.classList.toggle('done', !isChecked);
+                        taskRow.dataset.fullContent = fullContent;
+                    }
+                }
+            });
+        });
+    }
+
     // --- APP INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
         initUserView();
@@ -949,7 +1058,8 @@
         }
         document.getElementById('user-note-content-input').addEventListener('click', handleNoteClick);
         document.getElementById('note-content-input').addEventListener('click', handleNoteClick);
-
+        
+        setupTaskListeners();
     });
 </script>
 </body>
