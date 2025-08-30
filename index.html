@@ -339,9 +339,9 @@
                 <a onclick="switchToAdmin()">Panel Administratora</a>
             </div>
             <div class="nav-actions">
-                <button class="refresh-btn" title="Odśwież dane">🔄</button>
+                <button class="refresh-btn" title="Odśwież dane">&#128472;</button>
                 <button class="theme-toggle-btn"></button>
-                <button class="hamburger-btn" id="user-hamburger-btn">☰</button>
+                <button class="hamburger-btn" id="user-hamburger-btn">&#9776;</button>
             </div>
         </div>
         <div id="user-tasks" class="content active">
@@ -397,9 +397,9 @@
                 <a onclick="switchToUser()">Panel użytkownika</a>
             </div>
             <div class="nav-actions">
-                <button class="refresh-btn" title="Odśwież dane">🔄</button>
+                <button class="refresh-btn" title="Odśwież dane">&#128472;</button>
                 <button class="theme-toggle-btn"></button>
-                <button class="hamburger-btn" id="admin-hamburger-btn">☰</button>
+                <button class="hamburger-btn" id="admin-hamburger-btn">&#9776;</button>
             </div>
         </div>
         <div id="admin-tasks" class="content">
@@ -494,7 +494,7 @@
     const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
     function updateThemeIcon() {
         const isDarkMode = document.body.classList.contains('dark-mode');
-        themeToggleButtons.forEach(btn => { btn.innerHTML = isDarkMode ? '☀️' : '🌙'; });
+        themeToggleButtons.forEach(btn => { btn.innerHTML = isDarkMode ? '&#9728;&#65039;' : '&#127769;'; });
     }
     function toggleTheme() {
         document.body.classList.toggle('dark-mode');
@@ -685,7 +685,7 @@
             actionsWrapper.classList.add('note-actions');
             const pinBtn = document.createElement('span');
             pinBtn.classList.add('note-pin-btn');
-            pinBtn.innerHTML = '📌';
+            pinBtn.innerHTML = '&#128204;';
             pinBtn.title = 'Przypnij/Odepnij';
             pinBtn.onclick = async (e) => {
                 e.stopPropagation();
@@ -811,12 +811,12 @@
             actionsWrapper.classList.add('note-actions'); 
             const pinBtn = document.createElement('span'); 
             pinBtn.classList.add('note-pin-btn'); 
-            pinBtn.innerHTML = '�'; 
+            pinBtn.innerHTML = '&#128204;'; 
             pinBtn.title = 'Przypnij/Odepnij'; 
             pinBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id); renderNotes(); }; 
             const publishBtn = document.createElement('span'); 
             publishBtn.classList.add('note-publish-btn'); 
-            publishBtn.innerHTML = note.is_public ? '🔓' : '🔒'; 
+            publishBtn.innerHTML = note.is_public ? '&#128275;' : '&#128274;'; 
             publishBtn.title = note.is_public ? 'Uczyń prywatną' : 'Upublicznij'; 
             publishBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_public: !note.is_public }).eq('id', note.id); renderNotes(); }; 
             actionsWrapper.appendChild(pinBtn); 
@@ -954,4 +954,4 @@
 </script>
 </body>
 </html>
-�
+
