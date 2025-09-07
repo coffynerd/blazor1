@@ -469,6 +469,7 @@
                 <a onclick="showPage('admin-schedule-requests')">Wnioski do grafiku</a>
                 <a onclick="showPage('admin-notes')">Notatnik</a>
                 <a onclick="switchToUser()">Panel użytkownika</a>
+                <a onclick="handleCommandClick()">Komendy</a>
             </div>
             <div class="nav-actions">
                 <button class="refresh-btn" title="Odśwież dane">🔄</button>
@@ -604,33 +605,72 @@
     }
     function toggleTheme() {
         document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
         updateThemeIcon();
+    }
+    
+    function showAdminView() {
+        document.getElementById('user-view').style.display = 'none';
+        document.getElementById('admin-view').style.display = 'block';
+        showPage('admin-tasks');
+        if (!isAdminInitialized) { initAdminView(); isAdminInitialized = true; }
     }
     
     const passwordActions = {
         'admin': () => {
-            document.getElementById('user-view').style.display = 'none';
-            document.getElementById('admin-view').style.display = 'block';
-            showPage('admin-tasks');
-            if (!isAdminInitialized) { initAdminView(); isAdminInitialized = true; }
+            sessionStorage.setItem('isAdminSession', 'true');
+            showAdminView();
+        },
+        'admin_1': () => {
+            localStorage.setItem('defaultView', 'admin');
+            sessionStorage.setItem('isAdminSession', 'true');
+            showModal('Sukces', 'Panel administratora został ustawiony jako domyślny.');
+            showAdminView();
+        },
+        'admin_0': () => {
+            localStorage.setItem('defaultView', 'user');
+            sessionStorage.removeItem('isAdminSession');
+            showModal('Sukces', 'Panel użytkownika został ustawiony jako domyślny.');
+            switchToUser();
         },
         'dev': () => window.location.href = 'https://coffynerd.github.io/blazor1',
         'iddqd': () => window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI',
         'minecraft': () => window.location.href = 'https://classic.minecraft.net',
         'help': () => {
-            const availablePasswords = Object.keys(passwordActions).filter(p => p !== 'help');
+            const isSessionAdmin = sessionStorage.getItem('isAdminSession') === 'true';
+            const defaultView = localStorage.getItem('defaultView');
+            let commandKeys = Object.keys(passwordActions);
+            let availablePasswords;
+
+            if (isSessionAdmin || defaultView === 'admin') {
+                availablePasswords = commandKeys.filter(p => p !== 'help');
+            } else {
+                availablePasswords = commandKeys.filter(p => !p.startsWith('admin') && p !== 'help');
+            }
             showModal('Dostępne Hasła', '- ' + availablePasswords.join('\n- '));
         }
     };
-
-    function switchToAdmin() {
-        const password = prompt("Wpisz hasło administratora:");
+    
+    function handleCommandPrompt() {
+        const password = prompt("Wpisz hasło lub komendę:");
         if (password === null) return;
         if (passwordActions.hasOwnProperty(password)) {
             passwordActions[password]();
         } else {
-            showModal("Błąd", "Niepoprawne hasło!");
+            showModal("Błąd", "Niepoprawne hasło lub komenda!");
         }
+    }
+
+    function switchToAdmin() {
+        if (sessionStorage.getItem('isAdminSession') === 'true') {
+            showAdminView();
+        } else {
+            handleCommandPrompt();
+        }
+    }
+    
+    function handleCommandClick() {
+        handleCommandPrompt();
     }
 
     function switchToUser() {
@@ -642,6 +682,7 @@
     window.showPage = showPage;
     window.switchToAdmin = switchToAdmin;
     window.switchToUser = switchToUser;
+    window.handleCommandClick = handleCommandClick;
     
     // --- NOTEBOOK HELPERS ---
     function convertTextToHtml(text) {
@@ -1334,10 +1375,22 @@
 
     // --- APP INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
-        initUserView();
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+        updateThemeIcon();
+
+        const savedView = localStorage.getItem('defaultView');
+        if (savedView === 'admin') {
+            showAdminView();
+        } else {
+            initUserView();
+        }
+
         document.querySelectorAll('.refresh-btn').forEach(btn => btn.addEventListener('click', refreshAllData));
         themeToggleButtons.forEach(btn => btn.addEventListener('click', toggleTheme));
-        updateThemeIcon();
+        
 
         // Hamburger Menu Logic
         document.getElementById('user-hamburger-btn').addEventListener('click', () => {
