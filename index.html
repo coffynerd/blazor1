@@ -456,10 +456,6 @@
             </form>
             
             <h3>Zgłoszone wnioski</h3>
-             <div class="vacation-form-row">
-                <label for="user-vacation-name-filter">Wpisz swoje imię, aby zarządzać wnioskami:</label>
-                <input type="text" id="user-vacation-name-filter" placeholder="Twoje imię...">
-            </div>
             <div id="user-schedule-request-list">Ładowanie...</div>
         </div>
     </div>
@@ -559,6 +555,14 @@
                 <button type="submit">Wyślij wniosek</button>
             </form>
             <h2>Zarządzaj wnioskami</h2>
+            <div class="filter-container" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                <label for="admin-filter-start">Filtruj od:</label>
+                <input type="date" id="admin-filter-start">
+                <label for="admin-filter-end">do:</label>
+                <input type="date" id="admin-filter-end">
+                <button id="admin-filter-btn">Filtruj</button>
+                <button id="admin-clear-filter-btn">Wyczyść</button>
+            </div>
             <div id="admin-schedule-request-list">Ładowanie...</div>
         </div>
     </div>
@@ -971,8 +975,6 @@
 
     async function renderUserScheduleRequests() {
         const listEl = document.getElementById('user-schedule-request-list');
-        const nameFilter = document.getElementById('user-vacation-name-filter').value.trim().toLowerCase();
-
         const { data, error } = await supabase.from('vacation_requests').select('*').eq('is_visible', true).order('start_date');
         listEl.innerHTML = '';
         if (error) { listEl.innerHTML = 'Błąd ładowania wniosków.'; return; }
@@ -988,22 +990,17 @@
             itemDiv.classList.toggle('accepted', req.is_accepted);
             
             let status = req.is_accepted ? '(Zaakceptowany)' : '(Oczekujący)';
-            const isOwner = nameFilter && req.employee_name.toLowerCase() === nameFilter;
 
             let content = `
                 <span><strong>${req.employee_name}</strong>: ${req.start_date} do ${req.end_date} ${status}</span>
                 <span>${req.notes || ''}</span>
             `;
 
-            let buttons = '';
-            if (isOwner) {
-                 buttons = `
-                    <div class="vacation-user-actions">
-                        <button class="edit-vacation-btn" data-id="${req.id}">Edytuj</button>
-                        <button class="delete-vacation-btn" data-id="${req.id}">Usuń</button>
-                    </div>
-                `;
-            }
+            let buttons = `
+                <div class="vacation-user-actions">
+                    <button class="edit-vacation-btn" data-id="${req.id}">Edytuj</button>
+                </div>
+            `;
 
             itemDiv.innerHTML = content + buttons;
             listEl.appendChild(itemDiv);
@@ -1016,14 +1013,30 @@
         const listEl = document.getElementById('admin-schedule-request-list');
         listEl.innerHTML = '';
         if (error) { listEl.innerHTML = 'Błąd ładowania wniosków.'; return; }
-        if (data.length === 0) { listEl.innerHTML = 'Brak wniosków.'; return; }
 
-        data.forEach(req => {
+        const filterStartDate = document.getElementById('admin-filter-start').value;
+        const filterEndDate = document.getElementById('admin-filter-end').value;
+
+        let filteredData = data;
+        if (filterStartDate && filterEndDate) {
+            const filterStart = new Date(filterStartDate);
+            const filterEnd = new Date(filterEndDate);
+
+            filteredData = data.filter(req => {
+                const reqStart = new Date(req.start_date);
+                const reqEnd = new Date(req.end_date);
+                return reqStart <= filterEnd && reqEnd >= filterStart;
+            });
+        }
+        
+        if (filteredData.length === 0) { listEl.innerHTML = 'Brak wniosków spełniających kryteria.'; return; }
+
+        filteredData.forEach(req => {
             const itemDiv = document.createElement('div');
             itemDiv.classList.add('item-row', 'vacation-request');
             itemDiv.classList.toggle('accepted', req.is_accepted);
 
-            const createdDate = new Date(req.created_at).toLocaleDateString('pl-PL');
+            const createdDate = new Date(req.created_at).toLocaleString('pl-PL');
             const content = `
                 <span><strong>${req.employee_name}</strong>: ${req.start_date} do ${req.end_date} (Zgłoszono: ${createdDate})</span>
                 <span><i>${req.notes || 'Brak notatki'}</i></span>
@@ -1037,6 +1050,7 @@
                     </label>
                     <button class="toggle-visibility-btn" data-id="${req.id}" data-visible="${req.is_visible}">${req.is_visible ? 'Ukryj' : 'Pokaż'}</button>
                     <button class="edit-vacation-btn" data-id="${req.id}">Edytuj</button>
+                    <button class="delete-vacation-btn" data-id="${req.id}">Usuń</button>
                 </div>
             `;
             
@@ -1135,8 +1149,6 @@
                 refreshAllData();
             }
         });
-
-        document.getElementById('user-vacation-name-filter').addEventListener('keyup', renderUserScheduleRequests);
         
         document.getElementById('user-schedule-request-list').addEventListener('click', async (e) => {
             const target = e.target;
@@ -1156,13 +1168,6 @@
 
                  await supabase.from('vacation_requests').update({ start_date: new_start_date, end_date: new_end_date, notes: new_notes }).eq('id', reqId);
                  renderUserScheduleRequests();
-            }
-
-            if (target.classList.contains('delete-vacation-btn')) {
-                 if (confirm('Czy na pewno chcesz usunąć ten wniosek?')) {
-                    await supabase.from('vacation_requests').delete().eq('id', reqId);
-                    renderUserScheduleRequests();
-                 }
             }
         });
 
@@ -1256,6 +1261,19 @@
                  await supabase.from('vacation_requests').update({ start_date: new_start_date, end_date: new_end_date, notes: new_notes }).eq('id', reqId);
                  renderAdminScheduleRequests();
             }
+             if (target.classList.contains('delete-vacation-btn')) {
+                if (confirm('Czy na pewno chcesz usunąć ten wniosek?')) {
+                    await supabase.from('vacation_requests').delete().eq('id', reqId);
+                    renderAdminScheduleRequests();
+                }
+            }
+        });
+        
+        document.getElementById('admin-filter-btn').addEventListener('click', renderAdminScheduleRequests);
+        document.getElementById('admin-clear-filter-btn').addEventListener('click', () => {
+            document.getElementById('admin-filter-start').value = '';
+            document.getElementById('admin-filter-end').value = '';
+            renderAdminScheduleRequests();
         });
 
         refreshAllData();
