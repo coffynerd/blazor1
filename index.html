@@ -618,18 +618,15 @@
     
     const passwordActions = {
         'admin': () => {
-            sessionStorage.setItem('isAdminSession', 'true');
             showAdminView();
         },
         'admin_1': () => {
             localStorage.setItem('defaultView', 'admin');
-            sessionStorage.setItem('isAdminSession', 'true');
             showModal('Sukces', 'Panel administratora został ustawiony jako domyślny.');
             showAdminView();
         },
         'admin_0': () => {
             localStorage.setItem('defaultView', 'user');
-            sessionStorage.removeItem('isAdminSession');
             showModal('Sukces', 'Panel użytkownika został ustawiony jako domyślny.');
             switchToUser();
         },
@@ -637,12 +634,11 @@
         'iddqd': () => window.location.href = 'https://www.youtube.com/watch?v=dXji8ycMolI',
         'minecraft': () => window.location.href = 'https://classic.minecraft.net',
         'help': () => {
-            const isSessionAdmin = sessionStorage.getItem('isAdminSession') === 'true';
-            const defaultView = localStorage.getItem('defaultView');
+            const isAdminViewVisible = document.getElementById('admin-view').style.display === 'block';
             let commandKeys = Object.keys(passwordActions);
             let availablePasswords;
 
-            if (isSessionAdmin || defaultView === 'admin') {
+            if (isAdminViewVisible) {
                 availablePasswords = commandKeys.filter(p => p !== 'help');
             } else {
                 availablePasswords = commandKeys.filter(p => !p.startsWith('admin') && p !== 'help');
@@ -662,11 +658,7 @@
     }
 
     function switchToAdmin() {
-        if (sessionStorage.getItem('isAdminSession') === 'true') {
-            showAdminView();
-        } else {
-            handleCommandPrompt();
-        }
+        handleCommandPrompt();
     }
     
     function handleCommandClick() {
