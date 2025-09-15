@@ -399,7 +399,7 @@
         <div id="user-order" class="content">
             <h2>Do zamówienia</h2>
             <form id="user-order-form">
-                <input type="text" id="user-order-name" placeholder="Nazwa produktu (!!! dla priorytetu)" required>
+                <input type="text" id="user-order-name" placeholder="Nazwa produktu" required>
                 <input type="text" id="user-order-supplier" placeholder="Dostawca">
                 <button type="submit">Dodaj do listy</button>
             </form>
@@ -493,7 +493,7 @@
         <div id="admin-order" class="content">
             <h2>Do zamówienia (Admin)</h2>
              <form id="admin-order-form">
-                <input type="text" id="admin-order-name" placeholder="Nazwa produktu (!!! dla priorytetu)" required>
+                <input type="text" id="admin-order-name" placeholder="Nazwa produktu" required>
                 <input type="text" id="admin-order-supplier" placeholder="Dostawca">
                 <button type="submit">Dodaj do listy</button>
             </form>
@@ -564,10 +564,7 @@
                 <button id="admin-filter-btn">Filtruj</button>
                 <button id="admin-clear-filter-btn">Wyczyść</button>
             </div>
-            <h3>Wnioski Odkryte</h3>
-            <div id="admin-schedule-request-list-visible">Ładowanie...</div>
-            <h3>Wnioski Ukryte</h3>
-            <div id="admin-schedule-request-list-hidden"></div>
+            <div id="admin-schedule-request-list">Ładowanie...</div>
         </div>
     </div>
 
@@ -712,6 +709,7 @@
     function convertRenderedToSource(element) {
         const lines = [];
         element.childNodes.forEach(child => {
+            // Handle DIV elements (usually for lines after the first, or lines with checkboxes)
             if (child.nodeName === 'DIV') {
                 const checkbox = child.querySelector('input[type="checkbox"]');
                 const link = child.querySelector('a');
@@ -719,7 +717,8 @@
 
                 if (checkbox) {
                     const prefix = checkbox.checked ? '& ' : '# ';
-                    lines.push(prefix + child.textContent);
+                    // We use textContent to get just the text, excluding the checkbox itself
+                    lines.push(prefix + child.textContent.trim());
                 } else if (link && button) {
                     const buttonText = button.textContent;
                     let href = link.getAttribute('href');
@@ -730,12 +729,18 @@
                     }
                     lines.push(`[${buttonText}]{${href}}`);
                 } else {
-                    lines.push(child.innerHTML);
+                    // Use textContent for safety, it gets the text without any potential HTML tags
+                    lines.push(child.textContent);
                 }
+            } 
+            // Handle raw text nodes (often the first line in an empty editor)
+            else if (child.nodeName === '#text' && child.textContent.trim()) {
+                lines.push(child.textContent);
             }
         });
         return lines.join('\n');
     }
+
 
     // --- TASK HELPERS ---
     function parseTaskContent(content) {
@@ -836,54 +841,27 @@
         const orderList = document.getElementById('user-order-list');
         orderList.innerHTML = '';
         if (error) { orderList.innerHTML = 'Błąd ładowania listy.'; return; }
-
-        orders.sort((a, b) => {
-            const aIsPriority = a.name.startsWith('!!!');
-            const bIsPriority = b.name.startsWith('!!!');
-            if (aIsPriority && !bIsPriority) return -1;
-            if (!aIsPriority && bIsPriority) return 1;
-            return 0;
-        });
-
         orders.forEach(order => {
-            const isPriority = order.name.startsWith('!!!');
-            const displayName = isPriority ? order.name.substring(3).trim() : order.name;
-
             const itemDiv = document.createElement('div');
             itemDiv.classList.add('item-row', 'order-item');
-            if (isPriority) itemDiv.classList.add('priority');
-
             const contentWrapper = document.createElement('div');
             contentWrapper.classList.add('item-content-wrapper');
-            contentWrapper.textContent = displayName;
-
+            contentWrapper.textContent = order.name;
             const supplierInfo = document.createElement('span');
             supplierInfo.classList.add('supplier-info');
             supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
             contentWrapper.appendChild(supplierInfo);
-
             const dateInfo = document.createElement('div');
             dateInfo.classList.add('date-info');
             dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
-
             const buttonsDiv = document.createElement('div');
             buttonsDiv.classList.add('order-buttons');
-
             const doneBtn = document.createElement('button');
             doneBtn.textContent = 'Zamówione';
-            doneBtn.onclick = async () => { 
-                if (isPriority) {
-                    const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-770340.wav');
-                    audio.play();
-                }
-                await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); 
-                renderUserOrders(); 
-            };
-
+            doneBtn.onclick = async () => { await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); renderUserOrders(); };
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edytuj';
             editBtn.onclick = async () => { const newName = prompt("Nowa nazwa produktu:", order.name); const newSupplier = prompt("Nowy dostawca:", order.supplier); if(newName !== null && newSupplier !== null) { await supabase.from('orders').update({ name: newName, supplier: newSupplier }).eq('id', order.id); renderUserOrders(); } };
-
             buttonsDiv.appendChild(editBtn);
             buttonsDiv.appendChild(doneBtn);
             itemDiv.appendChild(contentWrapper);
@@ -944,51 +922,27 @@
         activeList.innerHTML = '';
         completedList.innerHTML = '';
         if (error) { activeList.innerHTML = 'Błąd ładowania listy.'; return; }
-
-        orders.sort((a, b) => {
-            const aIsPriority = a.name.startsWith('!!!');
-            const bIsPriority = b.name.startsWith('!!!');
-            if (aIsPriority && !bIsPriority) return -1;
-            if (!aIsPriority && bIsPriority) return 1;
-            return 0;
-        });
-
         orders.forEach(order => {
-            const isPriority = order.name.startsWith('!!!');
-            const displayName = isPriority ? order.name.substring(3).trim() : order.name;
-
             const itemDiv = document.createElement('div');
             itemDiv.classList.add('item-row', 'order-item');
             itemDiv.classList.toggle('done', order.is_completed);
-            if (isPriority) itemDiv.classList.add('priority');
-
             const contentWrapper = document.createElement('div');
             contentWrapper.classList.add('item-content-wrapper');
-            contentWrapper.textContent = displayName;
-
+            contentWrapper.textContent = order.name;
             const supplierInfo = document.createElement('span');
             supplierInfo.classList.add('supplier-info');
             supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
             contentWrapper.appendChild(supplierInfo);
-
             const dateInfo = document.createElement('div');
             dateInfo.classList.add('date-info');
             dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
-
             const buttonsDiv = document.createElement('div');
             buttonsDiv.classList.add('order-buttons');
             
             if (!order.is_completed) {
                 const doneBtn = document.createElement('button');
                 doneBtn.textContent = 'Zamówione';
-                doneBtn.onclick = async () => { 
-                    if (isPriority) {
-                        const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-770340.wav');
-                        audio.play();
-                    }
-                    await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); 
-                    renderAdminOrders(); 
-                };
+                doneBtn.onclick = async () => { await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); renderAdminOrders(); };
                 const editBtn = document.createElement('button');
                 editBtn.textContent = 'Edytuj';
                 editBtn.onclick = async () => { const newName = prompt("Nowa nazwa produktu:", order.name); const newSupplier = prompt("Nowy dostawca:", order.supplier); if(newName !== null && newSupplier !== null) { await supabase.from('orders').update({ name: newName, supplier: newSupplier }).eq('id', order.id); renderAdminOrders(); } };
@@ -1097,15 +1051,9 @@
 
     async function renderAdminScheduleRequests() {
         const { data, error } = await supabase.from('vacation_requests').select('*').order('created_at', { ascending: false });
-        const visibleListEl = document.getElementById('admin-schedule-request-list-visible');
-        const hiddenListEl = document.getElementById('admin-schedule-request-list-hidden');
-        visibleListEl.innerHTML = '';
-        hiddenListEl.innerHTML = '';
-
-        if (error) { 
-            visibleListEl.innerHTML = 'Błąd ładowania wniosków.'; 
-            return; 
-        }
+        const listEl = document.getElementById('admin-schedule-request-list');
+        listEl.innerHTML = '';
+        if (error) { listEl.innerHTML = 'Błąd ładowania wniosków.'; return; }
 
         const filterStartDate = document.getElementById('admin-filter-start').value;
         const filterEndDate = document.getElementById('admin-filter-end').value;
@@ -1122,13 +1070,9 @@
             });
         }
         
-        const visibleRequests = filteredData.filter(req => req.is_visible !== false);
-        const hiddenRequests = filteredData.filter(req => req.is_visible === false);
+        if (filteredData.length === 0) { listEl.innerHTML = 'Brak wniosków spełniających kryteria.'; return; }
 
-        if (visibleRequests.length === 0) { visibleListEl.innerHTML = 'Brak wniosków spełniających kryteria.'; }
-        if (hiddenRequests.length === 0) { hiddenListEl.innerHTML = 'Brak ukrytych wniosków.'; }
-
-        const createRequestElement = (req) => {
+        filteredData.forEach(req => {
             const itemDiv = document.createElement('div');
             itemDiv.classList.add('item-row', 'vacation-request');
             itemDiv.classList.toggle('accepted', req.is_accepted);
@@ -1145,18 +1089,15 @@
                         <input type="checkbox" class="accept-vacation-checkbox" data-id="${req.id}" ${req.is_accepted ? 'checked' : ''}>
                         Zaakceptowany
                     </label>
-                    <button class="toggle-visibility-btn" data-id="${req.id}" data-visible="${req.is_visible !== false}">${req.is_visible !== false ? 'Ukryj' : 'Pokaż'}</button>
+                    <button class="toggle-visibility-btn" data-id="${req.id}" data-visible="${req.is_visible}">${req.is_visible ? 'Ukryj' : 'Pokaż'}</button>
                     <button class="edit-vacation-btn" data-id="${req.id}">Edytuj</button>
                     <button class="delete-vacation-btn" data-id="${req.id}">Usuń</button>
                 </div>
             `;
             
             itemDiv.innerHTML = content + actions;
-            return itemDiv;
-        };
-
-        visibleRequests.forEach(req => visibleListEl.appendChild(createRequestElement(req)));
-        hiddenRequests.forEach(req => hiddenListEl.appendChild(createRequestElement(req)));
+            listEl.appendChild(itemDiv);
+        });
     }
 
     async function refreshAllData() {
@@ -1332,10 +1273,7 @@
             }
         });
 
-        document.getElementById('admin-schedule-request-list-visible').addEventListener('click', handleAdminRequestListClick);
-        document.getElementById('admin-schedule-request-list-hidden').addEventListener('click', handleAdminRequestListClick);
-
-        async function handleAdminRequestListClick(e) {
+        document.getElementById('admin-schedule-request-list').addEventListener('click', async (e) => {
             const target = e.target;
             const reqId = target.dataset.id;
             if (!reqId) return;
@@ -1370,7 +1308,7 @@
                     renderAdminScheduleRequests();
                 }
             }
-        };
+        });
         
         document.getElementById('admin-filter-btn').addEventListener('click', renderAdminScheduleRequests);
         document.getElementById('admin-clear-filter-btn').addEventListener('click', () => {
