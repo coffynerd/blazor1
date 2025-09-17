@@ -957,7 +957,7 @@
             shareBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (note.uuid) {
-                    const shareLink = `https://coffynerd.github.io/publicnotebook/${note.uuid}`;
+                    const shareLink = `https://coffynerd.github.io/publicnotebook/public_note.html?uuid=${note.uuid}`;
                     copyToClipboard(shareLink);
                 } else {
                     showModal('Błąd', 'Tej notatki nie można udostępnić, ponieważ nie ma przypisanego UUID.');
@@ -1101,7 +1101,7 @@
             shareBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (note.uuid) {
-                    const shareLink = `https://coffynerd.github.io/publicnotebook/${note.uuid}`;
+                    const shareLink = `https://coffynerd.github.io/publicnotebook/public_note.html?uuid=${note.uuid}`;
                     copyToClipboard(shareLink);
                 } else {
                     showModal('Błąd', 'Tej notatki nie można udostępnić, ponieważ nie ma przypisanego UUID.');
