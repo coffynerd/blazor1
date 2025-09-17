@@ -237,8 +237,8 @@
         .dark-mode .note-list-item:hover { background-color: rgba(255, 255, 255, 0.05); }
         .dark-mode .note-list-item.selected { background-color: #383838; color: #e0e0e0; }
         .note-actions { display: flex; align-items: center; }
-        .note-pin-btn, .note-publish-btn { cursor: pointer; opacity: 0.6; font-size: 1.1em; margin-left: 10px; }
-        .note-pin-btn:hover, .note-publish-btn:hover { opacity: 1; }
+        .note-pin-btn, .note-publish-btn, .note-share-btn { cursor: pointer; opacity: 0.6; font-size: 1.1em; margin-left: 10px; }
+        .note-pin-btn:hover, .note-publish-btn:hover, .note-share-btn:hover { opacity: 1; }
         .note-list-item.pinned .note-pin-btn { opacity: 1; }
         .note-list-item.public .note-publish-btn { opacity: 1; color: #007bff; } 
         .editor-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -590,6 +590,23 @@
         modal.style.display = 'flex';
     }
 
+    function copyToClipboard(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showModal('Sukces', 'Link do udostępnienia notatki został skopiowany do schowka.');
+        } catch (err) {
+            console.error('Copy to clipboard failed:', err);
+            showModal('Błąd', 'Nie udało się skopiować linku.');
+        }
+        document.body.removeChild(textarea);
+    }
+
     function showPage(pageId) {
         document.querySelectorAll('.content').forEach(div => div.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
@@ -932,7 +949,23 @@
                 await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id);
                 renderUserNotes();
             };
+
+            const shareBtn = document.createElement('span');
+            shareBtn.classList.add('note-share-btn');
+            shareBtn.innerHTML = '&#128279;'; // Link icon
+            shareBtn.title = 'Udostępnij (kopiuj link)';
+            shareBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (note.uuid) {
+                    const shareLink = `https://coffynerd.github.io/publicnotebook/${note.uuid}`;
+                    copyToClipboard(shareLink);
+                } else {
+                    showModal('Błąd', 'Tej notatki nie można udostępnić, ponieważ nie ma przypisanego UUID.');
+                }
+            };
+
             actionsWrapper.appendChild(pinBtn);
+            actionsWrapper.appendChild(shareBtn);
             item.appendChild(titleWrapper); 
             item.appendChild(actionsWrapper);
             item.onclick = () => loadUserNoteIntoEditor(note); 
@@ -1049,13 +1082,35 @@
             pinBtn.innerHTML = '&#128204;'; 
             pinBtn.title = 'Przypnij/Odepnij'; 
             pinBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id); renderNotes(); }; 
+            
             const publishBtn = document.createElement('span'); 
             publishBtn.classList.add('note-publish-btn'); 
             publishBtn.innerHTML = note.is_public ? '&#128275;' : '&#128274;'; 
             publishBtn.title = note.is_public ? 'Uczyń prywatną' : 'Upublicznij'; 
-            publishBtn.onclick = async (e) => { e.stopPropagation(); await supabase.from('notes').update({ is_public: !note.is_public }).eq('id', note.id); renderNotes(); }; 
+            publishBtn.onclick = async (e) => { 
+                e.stopPropagation(); 
+                const newPublicState = !note.is_public;
+                await supabase.from('notes').update({ is_public: newPublicState }).eq('id', note.id); 
+                renderNotes(); 
+            }; 
+
+            const shareBtn = document.createElement('span');
+            shareBtn.classList.add('note-share-btn');
+            shareBtn.innerHTML = '&#128279;'; // Link icon
+            shareBtn.title = 'Udostępnij (kopiuj link)';
+            shareBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (note.uuid) {
+                    const shareLink = `https://coffynerd.github.io/publicnotebook/${note.uuid}`;
+                    copyToClipboard(shareLink);
+                } else {
+                    showModal('Błąd', 'Tej notatki nie można udostępnić, ponieważ nie ma przypisanego UUID.');
+                }
+            };
+            
             actionsWrapper.appendChild(pinBtn); 
             actionsWrapper.appendChild(publishBtn); 
+            actionsWrapper.appendChild(shareBtn);
             item.appendChild(titleWrapper); 
             item.appendChild(actionsWrapper); 
             item.onclick = () => loadAdminNoteIntoEditor(note); 
