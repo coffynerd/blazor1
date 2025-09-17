@@ -399,7 +399,7 @@
         <div id="user-order" class="content">
             <h2>Do zamówienia</h2>
             <form id="user-order-form">
-                <input type="text" id="user-order-name" placeholder="Nazwa produktu" required>
+                <input type="text" id="user-order-name" placeholder="Nazwa produktu (!!! dla priorytetu)" required>
                 <input type="text" id="user-order-supplier" placeholder="Dostawca">
                 <button type="submit">Dodaj do listy</button>
             </form>
@@ -493,7 +493,7 @@
         <div id="admin-order" class="content">
             <h2>Do zamówienia (Admin)</h2>
              <form id="admin-order-form">
-                <input type="text" id="admin-order-name" placeholder="Nazwa produktu" required>
+                <input type="text" id="admin-order-name" placeholder="Nazwa produktu (!!! dla priorytetu)" required>
                 <input type="text" id="admin-order-supplier" placeholder="Dostawca">
                 <button type="submit">Dodaj do listy</button>
             </form>
@@ -841,27 +841,54 @@
         const orderList = document.getElementById('user-order-list');
         orderList.innerHTML = '';
         if (error) { orderList.innerHTML = 'Błąd ładowania listy.'; return; }
+
+        orders.sort((a, b) => {
+            const aIsPriority = a.name.startsWith('!!!');
+            const bIsPriority = b.name.startsWith('!!!');
+            if (aIsPriority && !bIsPriority) return -1;
+            if (!aIsPriority && bIsPriority) return 1;
+            return 0;
+        });
+
         orders.forEach(order => {
+            const isPriority = order.name.startsWith('!!!');
+            const displayName = isPriority ? order.name.substring(3).trim() : order.name;
+
             const itemDiv = document.createElement('div');
             itemDiv.classList.add('item-row', 'order-item');
+            if (isPriority) itemDiv.classList.add('priority');
+
             const contentWrapper = document.createElement('div');
             contentWrapper.classList.add('item-content-wrapper');
-            contentWrapper.textContent = order.name;
+            contentWrapper.textContent = displayName;
+
             const supplierInfo = document.createElement('span');
             supplierInfo.classList.add('supplier-info');
             supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
             contentWrapper.appendChild(supplierInfo);
+
             const dateInfo = document.createElement('div');
             dateInfo.classList.add('date-info');
             dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
+
             const buttonsDiv = document.createElement('div');
             buttonsDiv.classList.add('order-buttons');
+
             const doneBtn = document.createElement('button');
             doneBtn.textContent = 'Zamówione';
-            doneBtn.onclick = async () => { await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); renderUserOrders(); };
+            doneBtn.onclick = async () => { 
+                if (isPriority) {
+                    const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-770340.wav');
+                    audio.play();
+                }
+                await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); 
+                renderUserOrders(); 
+            };
+
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edytuj';
             editBtn.onclick = async () => { const newName = prompt("Nowa nazwa produktu:", order.name); const newSupplier = prompt("Nowy dostawca:", order.supplier); if(newName !== null && newSupplier !== null) { await supabase.from('orders').update({ name: newName, supplier: newSupplier }).eq('id', order.id); renderUserOrders(); } };
+
             buttonsDiv.appendChild(editBtn);
             buttonsDiv.appendChild(doneBtn);
             itemDiv.appendChild(contentWrapper);
@@ -922,27 +949,51 @@
         activeList.innerHTML = '';
         completedList.innerHTML = '';
         if (error) { activeList.innerHTML = 'Błąd ładowania listy.'; return; }
+
+        orders.sort((a, b) => {
+            const aIsPriority = a.name.startsWith('!!!');
+            const bIsPriority = b.name.startsWith('!!!');
+            if (aIsPriority && !bIsPriority) return -1;
+            if (!aIsPriority && bIsPriority) return 1;
+            return 0;
+        });
+
         orders.forEach(order => {
+            const isPriority = order.name.startsWith('!!!');
+            const displayName = isPriority ? order.name.substring(3).trim() : order.name;
+
             const itemDiv = document.createElement('div');
             itemDiv.classList.add('item-row', 'order-item');
             itemDiv.classList.toggle('done', order.is_completed);
+            if (isPriority) itemDiv.classList.add('priority');
+
             const contentWrapper = document.createElement('div');
             contentWrapper.classList.add('item-content-wrapper');
-            contentWrapper.textContent = order.name;
+            contentWrapper.textContent = displayName;
+
             const supplierInfo = document.createElement('span');
             supplierInfo.classList.add('supplier-info');
             supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
             contentWrapper.appendChild(supplierInfo);
+
             const dateInfo = document.createElement('div');
             dateInfo.classList.add('date-info');
             dateInfo.textContent = new Date(order.created_at).toLocaleDateString('pl-PL');
+
             const buttonsDiv = document.createElement('div');
             buttonsDiv.classList.add('order-buttons');
             
             if (!order.is_completed) {
                 const doneBtn = document.createElement('button');
                 doneBtn.textContent = 'Zamówione';
-                doneBtn.onclick = async () => { await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); renderAdminOrders(); };
+                doneBtn.onclick = async () => { 
+                    if (isPriority) {
+                        const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-770340.wav');
+                        audio.play();
+                    }
+                    await supabase.from('orders').update({ is_completed: true }).eq('id', order.id); 
+                    renderAdminOrders(); 
+                };
                 const editBtn = document.createElement('button');
                 editBtn.textContent = 'Edytuj';
                 editBtn.onclick = async () => { const newName = prompt("Nowa nazwa produktu:", order.name); const newSupplier = prompt("Nowy dostawca:", order.supplier); if(newName !== null && newSupplier !== null) { await supabase.from('orders').update({ name: newName, supplier: newSupplier }).eq('id', order.id); renderAdminOrders(); } };
