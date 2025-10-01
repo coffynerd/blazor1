@@ -241,8 +241,8 @@
         .note-actions { display: flex; align-items: center; }
         .note-pin-btn, .note-publish-btn, .note-share-btn { cursor: pointer; opacity: 0.6; font-size: 1.1em; margin-left: 10px; }
         .note-pin-btn:hover, .note-publish-btn:hover, .note-share-btn:hover { opacity: 1; }
-        .note-list-item.pinned .note-pin-btn { opacity: 1; }
-        .note-list-item.public .note-publish-btn { opacity: 1; color: #007bff; }
+        .note-list-item.pinned .note-pin-btn { opacity: 1; color: #007bff; }
+        .note-list-item.public .note-publish-btn { opacity: 1; color: #28a745; }
         .editor-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         #note-title-input, #user-note-title-input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         #note-color-input, #user-note-color-input { height: 35px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; background-color: white; }
@@ -431,12 +431,12 @@
     <div id="user-view">
         <div class="nav-bar blue-nav">
             <div class="nav-links" id="user-nav-links">
-                <a onclick="showPage('user-tasks')">Lista zadań</a>
-                <a onclick="showPage('user-order')">Do zamówienia</a>
-                <a onclick="showPage('user-schedule')">Grafik</a>
-                <a onclick="showPage('user-schedule-requests')">Wnioski do grafiku</a>
-                <a onclick="showPage('user-notes')">Notatnik</a>
-                <a onclick="switchToAdmin()">Panel Administratora</a>
+                <a data-page="user-tasks">Lista zadań</a>
+                <a data-page="user-order">Do zamówienia</a>
+                <a data-page="user-schedule">Grafik</a>
+                <a data-page="user-schedule-requests">Wnioski do grafiku</a>
+                <a data-page="user-notes">Notatnik</a>
+                <a id="switch-to-admin-btn">Panel Administratora</a>
             </div>
             <div class="nav-actions">
                 <button class="refresh-btn" title="Odśwież dane">🔄</button>
@@ -515,13 +515,13 @@
     <div id="admin-view" style="display: none;">
         <div class="nav-bar gray-nav">
             <div class="nav-links" id="admin-nav-links">
-                <a onclick="showPage('admin-tasks')">Lista zadań</a>
-                <a onclick="showPage('admin-order')">Do zamówienia</a>
-                <a onclick="showPage('admin-schedule')">Grafik</a>
-                <a onclick="showPage('admin-schedule-requests')">Wnioski do grafiku</a>
-                <a onclick="showPage('admin-notes')">Notatnik</a>
-                <a onclick="switchToUser()">Panel użytkownika</a>
-                <a onclick="handleCommandClick()">Komendy</a>
+                <a data-page="admin-tasks">Lista zadań</a>
+                <a data-page="admin-order">Do zamówienia</a>
+                <a data-page="admin-schedule">Grafik</a>
+                <a data-page="admin-schedule-requests">Wnioski do grafiku</a>
+                <a data-page="admin-notes">Notatnik</a>
+                <a id="switch-to-user-btn">Panel użytkownika</a>
+                <a id="admin-commands-btn">Komendy</a>
             </div>
             <div class="nav-actions">
                 <button class="refresh-btn" title="Odśwież dane">🔄</button>
@@ -616,7 +616,10 @@
                 <button id="admin-filter-btn">Filtruj</button>
                 <button id="admin-clear-filter-btn">Wyczyść</button>
             </div>
-            <div id="admin-schedule-request-list">Ładowanie...</div>
+            <h3>Widoczne wnioski</h3>
+            <div id="admin-schedule-request-list-visible">Ładowanie...</div>
+            <h3>Ukryte wnioski</h3>
+            <div id="admin-schedule-request-list-hidden">Ładowanie...</div>
         </div>
     </div>
 
@@ -627,54 +630,62 @@
     import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // --- GLOBAL STATE AND VIEW MANAGEMENT ---
-    let isAdminInitialized = false;
+    // --- CONFIGURATION ---
+    const firebaseConfigFromEnv = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    const firebaseConfig = firebaseConfigFromEnv || {
+        apiKey: "AIzaSyDT2h4LtrlLP0d2X4jWyaQKabzUbpK_elA",
+        authDomain: "psb-app-58090.firebaseapp.com",
+        projectId: "psb-app-58090",
+        storageBucket: "psb-app-58090.appspot.com",
+        messagingSenderId: "100516614463",
+        appId: "1:100516614463:web:36fe37ee48cee575b8838a"
+    };
     const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
     const supabase = createClient(supabaseUrl, supabaseKey);
-    let editorMode = { user: 'render', admin: 'render' }; // 'render' or 'raw'
+
+
+    // --- GLOBAL STATE AND VIEW MANAGEMENT ---
+    let isAdminInitialized = false;
+    let showSourceTagsAdmin = false;
+    let editorMode = { user: 'render', admin: 'render' };
     let currentUserNoteId = null;
     let currentAdminNoteId = null;
 
     // --- Firebase Setup ---
-    let app;
-    let db;
-    let auth;
-    let userId;
-    let isAuthReady = false; // Flag to indicate if auth state is determined
+    let app, db, auth, userId;
+    let isAuthReady = false;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
-    // Initialize Firebase App only once
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        setLogLevel('debug');
 
-    setLogLevel('Debug'); // Enable Firebase debug logging
-
-    // Sign in with custom token or anonymously
-    onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-            if (typeof __initial_auth_token !== 'undefined') {
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
                 try {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                    console.log("Signed in with custom token.");
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
                 } catch (error) {
-                    console.error("Error signing in with custom token:", error);
+                    console.error("Authentication failed, signing in anonymously as fallback:", error);
                     await signInAnonymously(auth);
-                    console.log("Signed in anonymously due to custom token error.");
                 }
-            } else {
-                await signInAnonymously(auth);
-                console.log("Signed in anonymously.");
             }
-        }
-        userId = auth.currentUser?.uid || crypto.randomUUID();
-        isAuthReady = true;
-        console.log("Firebase Auth Ready. User ID:", userId);
-        // Refresh data after auth is ready
-        refreshAllData();
-    });
+            userId = auth.currentUser?.uid || crypto.randomUUID();
+            isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", userId);
+            refreshAllData();
+        });
+    } catch (error) {
+        console.error("Firebase initialization failed:", error);
+        document.body.innerHTML = 'Błąd inicjalizacji Firebase. Sprawdź konfigurację w sekcji CONFIGURATION na początku skryptu.';
+    }
+
 
     // --- UI UTILITIES ---
     const modal = document.getElementById('modal');
@@ -688,77 +699,52 @@
         modal.style.display = 'flex';
     }
 
-    // Custom prompt modal
     const promptModal = document.getElementById('promptModal');
-    const promptModalTitle = document.getElementById('promptModal-title');
-    const promptModalMessage = document.getElementById('promptModal-message');
-    const promptModalInput = document.getElementById('promptModal-input');
-    const promptModalOkBtn = document.getElementById('promptModal-ok-btn');
-    const promptModalCancelBtn = document.getElementById('promptModal-cancel-btn');
-
     function showPromptModal(title, message, defaultValue = '') {
         return new Promise(resolve => {
-            promptModalTitle.textContent = title;
-            promptModalMessage.textContent = message;
-            promptModalInput.value = defaultValue;
+            promptModal.querySelector('#promptModal-title').textContent = title;
+            promptModal.querySelector('#promptModal-message').textContent = message;
+            const input = promptModal.querySelector('#promptModal-input');
+            input.value = defaultValue;
             promptModal.style.display = 'flex';
+            input.focus();
 
-            const handleOk = () => {
+            const close = (value) => {
                 promptModal.style.display = 'none';
-                promptModalOkBtn.removeEventListener('click', handleOk);
-                promptModalCancelBtn.removeEventListener('click', handleCancel);
-                resolve(promptModalInput.value);
+                promptModal.querySelector('#promptModal-ok-btn').onclick = null;
+                promptModal.querySelector('#promptModal-cancel-btn').onclick = null;
+                resolve(value);
             };
 
-            const handleCancel = () => {
-                promptModal.style.display = 'none';
-                promptModalOkBtn.removeEventListener('click', handleOk);
-                promptModalCancelBtn.removeEventListener('click', handleCancel);
-                resolve(null);
-            };
-
-            promptModalOkBtn.addEventListener('click', handleOk);
-            promptModalCancelBtn.addEventListener('click', handleCancel);
+            promptModal.querySelector('#promptModal-ok-btn').onclick = () => close(input.value);
+            promptModal.querySelector('#promptModal-cancel-btn').onclick = () => close(null);
         });
     }
 
-    // Custom confirm modal
     const confirmModal = document.getElementById('confirmModal');
-    const confirmModalTitle = document.getElementById('confirmModal-title');
-    const confirmModalMessage = document.getElementById('confirmModal-message');
-    const confirmModalYesBtn = document.getElementById('confirmModal-yes-btn');
-    const confirmModalNoBtn = document.getElementById('confirmModal-no-btn');
-
     function showConfirmModal(title, message) {
         return new Promise(resolve => {
-            confirmModalTitle.textContent = title;
-            confirmModalMessage.textContent = message;
+            confirmModal.querySelector('#confirmModal-title').textContent = title;
+            confirmModal.querySelector('#confirmModal-message').textContent = message;
             confirmModal.style.display = 'flex';
 
-            const handleYes = () => {
+            const close = (value) => {
                 confirmModal.style.display = 'none';
-                confirmModalYesBtn.removeEventListener('click', handleYes);
-                confirmModalNoBtn.removeEventListener('click', handleNo);
-                resolve(true);
+                confirmModal.querySelector('#confirmModal-yes-btn').onclick = null;
+                confirmModal.querySelector('#confirmModal-no-btn').onclick = null;
+                resolve(value);
             };
 
-            const handleNo = () => {
-                confirmModal.style.display = 'none';
-                confirmModalYesBtn.removeEventListener('click', handleYes);
-                confirmModalNoBtn.removeEventListener('click', handleNo);
-                resolve(false);
-            };
-
-            confirmModalYesBtn.addEventListener('click', handleYes);
-            confirmModalNoBtn.addEventListener('click', handleNo);
+            confirmModal.querySelector('#confirmModal-yes-btn').onclick = () => close(true);
+            confirmModal.querySelector('#confirmModal-no-btn').onclick = () => close(false);
         });
     }
 
 
     function showPage(pageId) {
         document.querySelectorAll('.content').forEach(div => div.classList.remove('active'));
-        document.getElementById(pageId).classList.add('active');
-        // Close mobile menu on navigation
+        const page = document.getElementById(pageId);
+        if (page) page.classList.add('active');
         document.getElementById('user-nav-links').classList.remove('open');
         document.getElementById('admin-nav-links').classList.remove('open');
     }
@@ -766,7 +752,7 @@
     let themeToggleButtons;
     function updateThemeIcon() {
         const isDarkMode = document.body.classList.contains('dark-mode');
-        themeToggleButtons.forEach(btn => { btn.innerHTML = isDarkMode ? '&#9728;&#65039;' : '&#127769;'; });
+        if (themeToggleButtons) themeToggleButtons.forEach(btn => { btn.innerHTML = isDarkMode ? '&#9728;&#65039;' : '&#127769;'; });
     }
     function toggleTheme() {
         document.body.classList.toggle('dark-mode');
@@ -779,55 +765,35 @@
         document.getElementById('admin-view').style.display = 'block';
         showPage('admin-tasks');
         if (!isAdminInitialized) { initAdminView(); isAdminInitialized = true; }
+        refreshAllData();
     }
-
+    
     const passwordActions = {
-        'admin': () => {
-            showAdminView();
-        },
-        'admin_1': () => {
-            localStorage.setItem('defaultView', 'admin');
-            showModal('Sukces', 'Panel administratora został ustawiony jako domyślny.');
-            showAdminView();
-        },
-        'admin_0': () => {
-            localStorage.setItem('defaultView', 'user');
-            showModal('Sukces', 'Panel użytkownika został ustawiony jako domyślny.');
-            switchToUser();
-        },
+        'admin': showAdminView,
+        'admin_1': () => { localStorage.setItem('defaultView', 'admin'); showModal('Sukces', 'Panel administratora został ustawiony jako domyślny.'); showAdminView(); },
+        'admin_0': () => { localStorage.setItem('defaultView', 'user'); showModal('Sukces', 'Panel użytkownika został ustawiony jako domyślny.'); switchToUser(); },
+        'sql': () => { showSourceTagsAdmin = !showSourceTagsAdmin; showModal('Status', `Widoczność tagów źródła: ${showSourceTagsAdmin ? 'Włączona' : 'Wyłączona'}`); refreshAllData(); },
         'dev': () => window.open('https://coffynerd.github.io/blazor1', '_blank'),
         'iddqd': () => window.open('https://www.youtube.com/watch?v=dXji8ycMolI', '_blank'),
         'minecraft': () => window.open('https://classic.minecraft.net', '_blank'),
         'help': () => {
-            const isAdminViewVisible = document.getElementById('admin-view').style.display === 'block';
-            let commandKeys = Object.keys(passwordActions);
-            let availablePasswords;
-
-            if (isAdminViewVisible) {
-                availablePasswords = commandKeys.filter(p => p !== 'help');
-            } else {
-                availablePasswords = commandKeys.filter(p => !p.startsWith('admin') && p !== 'help');
-            }
-            showModal('Dostępne Hasła', '- ' + availablePasswords.join('\n- '));
+            const isAdminView = document.getElementById('admin-view').style.display === 'block';
+            const commands = Object.keys(passwordActions).filter(cmd => {
+                if (cmd === 'help') return false;
+                if (!isAdminView && (cmd.startsWith('admin') || cmd === 'sql')) return false;
+                return true;
+            });
+            showModal('Dostępne komendy', '- ' + commands.join('\n- '));
         }
     };
 
     async function handleCommandPrompt() {
-        const password = await showPromptModal("Wpisz hasło lub komendę:", "Wprowadź hasło, aby uzyskać dostęp do funkcji.");
-        if (password === null) return; // User cancelled
-        if (passwordActions.hasOwnProperty(password)) {
+        const password = await showPromptModal("Wpisz hasło lub komendę:", "");
+        if (password !== null && passwordActions[password]) {
             passwordActions[password]();
-        } else {
+        } else if (password !== null) {
             showModal("Błąd", "Niepoprawne hasło lub komenda!");
         }
-    }
-
-    function switchToAdmin() {
-        handleCommandPrompt();
-    }
-
-    function handleCommandClick() {
-        handleCommandPrompt();
     }
 
     function switchToUser() {
@@ -836,779 +802,514 @@
         showPage('user-tasks');
     }
 
-    window.showPage = showPage;
-    window.switchToAdmin = switchToAdmin;
-    window.switchToUser = switchToUser;
-    window.handleCommandClick = handleCommandClick;
-
     // --- NOTEBOOK HELPERS ---
     function convertTextToHtml(text) {
         if (!text) return '';
-
         const buttonRegex = /\[(.*?)\]\{(.*?)\}/g;
-
-        const lines = text.split('\n');
-        const htmlLines = lines.map(line => {
-            let processedLine = line;
-            const trimmed = line.trim();
-
-            if (trimmed.startsWith('# ')) {
-                return `<div><input type="checkbox">${trimmed.substring(2)}</div>`;
-            } else if (trimmed.startsWith('& ')) {
-                return `<div><input type="checkbox" checked>${trimmed.substring(2)}</div>`;
-            }
-
-            processedLine = processedLine.replace(buttonRegex, (match, buttonText, link) => {
-                let href = link.trim();
-                if (!href.startsWith('http://') && !href.startsWith('https://')) {
-                    href = 'https://' + href;
-                }
-                return `<a href="${href}" target="_blank"><button>${buttonText}</button></a>`;
-            });
-
-            return `<div>${processedLine}</div>`;
-        });
-        return htmlLines.join('');
+        return text.split('\n').map(line => {
+            let pLine = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const trimmed = pLine.trim();
+            if (trimmed.startsWith('# ')) return `<div><input type="checkbox">${trimmed.substring(2)}</div>`;
+            if (trimmed.startsWith('& ')) return `<div><input type="checkbox" checked>${trimmed.substring(2)}</div>`;
+            return `<div>${pLine.replace(buttonRegex, (m, btn, lnk) => `<a href="${/^(https?:\/\/)/.test(lnk) ? lnk : 'https://' + lnk}" target="_blank"><button>${btn}</button></a>`)}</div>`;
+        }).join('');
     }
 
     function convertRenderedToSource(element) {
-        const lines = [];
-        element.childNodes.forEach(child => {
-            if (child.nodeName === 'DIV') {
-                const checkbox = child.querySelector('input[type="checkbox"]');
-                const link = child.querySelector('a');
-                const button = link ? link.querySelector('button') : null;
-
-                if (checkbox) {
-                    const prefix = checkbox.checked ? '& ' : '# ';
-                    lines.push(prefix + child.textContent.trim());
-                } else if (link && button) {
-                    const buttonText = button.textContent;
-                    let href = link.getAttribute('href');
-                    if (href.startsWith('https://')) {
-                        href = href.substring(8);
-                    } else if (href.startsWith('http://')) {
-                        href = href.substring(7);
-                    }
-                    lines.push(`[${buttonText}]{${href}}`);
-                } else {
-                    lines.push(child.textContent);
-                }
-            }
-            else if (child.nodeName === '#text' && child.textContent.trim()) {
-                lines.push(child.textContent);
-            }
-        });
-        return lines.join('\n');
+        return Array.from(element.childNodes).map(child => {
+            if (child.nodeName !== 'DIV') return child.textContent;
+            const checkbox = child.querySelector('input[type="checkbox"]');
+            if (checkbox) return (checkbox.checked ? '& ' : '# ') + child.textContent.trim();
+            const link = child.querySelector('a');
+            if (link) return `[${link.textContent}]{${link.getAttribute('href').replace(/^https?:\/\//, '')}}`;
+            return child.textContent;
+        }).join('\n');
     }
-
 
     // --- TASK HELPERS ---
-    function parseTaskContent(content) {
-        if (!content) return '';
-        const subtaskRegex = /\((#|&)(.*?)\)/g;
+    function parseTaskContent(content = '') {
         let index = 0;
-        return content.replace(subtaskRegex, (match, sign, text) => {
+        return content.replace(/\((#|&)(.*?)\)/g, (match, sign, text) => {
             const isChecked = sign === '&';
-            const textSpan = `<span class="subtask-text ${isChecked ? 'done' : ''}">${text}</span>`;
-            const checkbox = `<input type="checkbox" class="subtask-checkbox" data-index="${index++}" ${isChecked ? 'checked' : ''}>`;
-            return `<span class="subtask">${checkbox}${textSpan}</span>`;
+            return `<span class="subtask"><input type="checkbox" class="subtask-checkbox" data-index="${index++}" ${isChecked ? 'checked' : ''}><span class="subtask-text ${isChecked ? 'done' : ''}">${text}</span></span>`;
         });
     }
 
-    // --- RENDER FUNCTIONS (GLOBAL SCOPE) ---
+    // --- RENDER FUNCTIONS ---
+    async function renderTasks(isAdmin) {
+        const listElement = document.getElementById(isAdmin ? 'admin-task-list-visible' : 'user-task-list');
+        const hiddenListElement = isAdmin ? document.getElementById('admin-task-list-hidden') : null;
 
-    async function renderTasks(listElement, isAdmin) {
         if (!isAuthReady) {
             if (listElement) listElement.innerHTML = 'Ładowanie uwierzytelniania...';
             return;
         }
 
-        // Fetch tasks from Supabase
         const { data: supabaseTasks, error: supabaseError } = await supabase.from('tasks').select('*');
-        if (supabaseError) {
-            console.error('Supabase tasks fetch error:', supabaseError);
-            if (listElement) listElement.innerHTML = 'Błąd ładowania zadań z Supabase.';
-        }
-        const formattedSupabaseTasks = (supabaseTasks || []).map(task => ({
-            ...task,
-            source: 'supabase',
-            createdAt: task.created_at, // Standardize naming
-            id: task.id // Keep original ID for updates
-        }));
+        if (supabaseError) console.error('Supabase tasks fetch error:', supabaseError);
+        const formattedSupabaseTasks = (supabaseTasks || []).map(task => ({ ...task, source: 'supabase', createdAt: task.created_at, id: `supabase-${task.id}` }));
 
-        // Fetch tasks from Firebase
         const firebaseTasksColRef = collection(db, `artifacts/${appId}/public/data/tasks`);
         const firebaseTasksSnapshot = await getDocs(firebaseTasksColRef);
-        const firebaseTasks = firebaseTasksSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            source: 'firebase',
-            createdAt: doc.data().createdAt?.toDate() // Convert Firestore Timestamp to Date
-        }));
+        const firebaseTasks = firebaseTasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'firebase', createdAt: doc.data().createdAt?.toDate() }));
 
         const allTasks = [...formattedSupabaseTasks, ...firebaseTasks];
-
         allTasks.sort((a, b) => {
             const aIsPriority = a.content.startsWith('!!!');
             const bIsPriority = b.content.startsWith('!!!');
             if (aIsPriority && !bIsPriority) return -1;
             if (!aIsPriority && bIsPriority) return 1;
-            if (a.createdAt && b.createdAt) {
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            }
-            return 0;
+            return (b.createdAt ? new Date(b.createdAt) : 0) - (a.createdAt ? new Date(a.createdAt) : 0);
         });
 
         const renderList = (tasksToRender, targetElement) => {
-            if (!targetElement) return; // For admin view where listElement might be null
-
-            targetElement.innerHTML = '';
-            if (tasksToRender.length === 0) {
-                targetElement.innerHTML = '<p>Brak zadań.</p>';
-                return;
-            }
-
+            if (!targetElement) return;
+            targetElement.innerHTML = tasksToRender.length === 0 ? '<p>Brak zadań.</p>' : '';
             tasksToRender.forEach(task => {
                 const isPriority = task.content.startsWith('!!!');
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row', 'task-item');
-                itemDiv.classList.toggle('done', task.done);
-                if (isPriority) itemDiv.classList.add('priority');
+                itemDiv.className = `item-row task-item ${task.done ? 'done' : ''} ${isPriority ? 'priority' : ''}`;
                 itemDiv.dataset.taskId = task.id;
-                itemDiv.dataset.source = task.source; // Store source
+                itemDiv.dataset.source = task.source;
                 itemDiv.dataset.fullContent = task.content;
 
                 const contentWrapper = document.createElement('div');
-                contentWrapper.classList.add('item-content-wrapper');
+                contentWrapper.className = 'item-content-wrapper';
 
                 const mainCheckbox = document.createElement('input');
                 mainCheckbox.type = 'checkbox';
                 mainCheckbox.checked = task.done;
                 mainCheckbox.style.marginRight = '10px';
-                mainCheckbox.addEventListener('change', async () => {
-                    let updateFn;
-                    let targetCollection;
-                    if (task.source === 'supabase') {
-                        updateFn = async () => supabase.from('tasks').update({ done: mainCheckbox.checked }).eq('id', task.id);
-                    } else { // firebase
-                        targetCollection = collection(db, `artifacts/${appId}/public/data/tasks`);
-                        updateFn = async () => updateDoc(doc(targetCollection, task.id), { done: mainCheckbox.checked });
-                    }
+                mainCheckbox.onchange = async () => {
+                    const updateData = { done: mainCheckbox.checked };
                     try {
-                        const { error } = await updateFn();
-                        if (error) throw error;
-                        itemDiv.classList.toggle('done', mainCheckbox.checked);
-                        if (isPriority && mainCheckbox.checked) {
-                            const audio = new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav');
-                            audio.play();
+                        if (task.source === 'supabase') {
+                            const { error } = await supabase.from('tasks').update(updateData).eq('id', task.id.replace('supabase-',''));
+                            if (error) throw error;
+                        } else {
+                            await updateDoc(doc(db, `artifacts/${appId}/public/data/tasks`, task.id), updateData);
                         }
+                        itemDiv.classList.toggle('done', mainCheckbox.checked);
+                        if (isPriority && mainCheckbox.checked) new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-758719.wav').play();
+                        refreshAllData();
                     } catch (error) {
-                        showModal('Błąd', 'Błąd aktualizacji zadania! ' + (error.message || error.details || ''));
-                        mainCheckbox.checked = !mainCheckbox.checked; // Revert checkbox state
+                        showModal('Błąd', 'Błąd aktualizacji zadania: ' + error.message);
+                        mainCheckbox.checked = !mainCheckbox.checked; // Revert UI
                     }
-                });
+                };
 
                 const taskContentContainer = document.createElement('span');
-                taskContentContainer.classList.add('task-text-container');
+                taskContentContainer.className = 'task-text-container';
+                taskContentContainer.innerHTML = parseTaskContent(isPriority ? task.content.substring(3).trim() : task.content);
+                contentWrapper.append(mainCheckbox, taskContentContainer);
 
-                let contentToParse = task.content;
-                if (isPriority) {
-                    contentToParse = task.content.substring(3).trim();
+                if (isAdmin && showSourceTagsAdmin) {
+                    const sourceTag = document.createElement('span');
+                    sourceTag.className = `source-tag ${task.source}`;
+                    sourceTag.textContent = task.source;
+                    contentWrapper.appendChild(sourceTag);
                 }
-                taskContentContainer.innerHTML = parseTaskContent(contentToParse);
-
-                contentWrapper.appendChild(mainCheckbox);
-                contentWrapper.appendChild(taskContentContainer);
-
-                const sourceTag = document.createElement('span');
-                sourceTag.classList.add('source-tag', task.source);
-                sourceTag.textContent = task.source === 'supabase' ? 'Supabase' : 'Firebase';
-                contentWrapper.appendChild(sourceTag);
 
                 const rightSideInfo = document.createElement('div');
-                rightSideInfo.classList.add('right-aligned-info');
-                const assignees = document.createElement('div');
-                assignees.classList.add('assignees');
+                rightSideInfo.className = 'right-aligned-info';
                 const assigneesList = Array.isArray(task.assignees) ? task.assignees : (typeof task.assignees === 'string' && task.assignees.length > 0 ? task.assignees.split(/[,;]/).map(s => s.trim()) : []);
-                assignees.textContent = 'Osoby: ' + (assigneesList.length > 0 ? assigneesList.join(', ') : 'brak');
-                rightSideInfo.appendChild(assignees);
-                if (task.createdAt) {
-                    const dateInfo = document.createElement('div');
-                    dateInfo.classList.add('date-info');
-                    dateInfo.textContent = new Date(task.createdAt).toLocaleDateString('pl-PL');
-                    rightSideInfo.appendChild(dateInfo);
-                }
-                itemDiv.appendChild(contentWrapper);
-                itemDiv.appendChild(rightSideInfo);
+                rightSideInfo.innerHTML = `<div class="assignees">Osoby: ${assigneesList.length > 0 ? assigneesList.join(', ') : 'brak'}</div>
+                                           ${task.createdAt ? `<div class="date-info">${new Date(task.createdAt).toLocaleDateString('pl-PL')}</div>` : ''}`;
+                itemDiv.append(contentWrapper, rightSideInfo);
 
                 if (isAdmin) {
                     const buttonsDiv = document.createElement('div');
-                    const editBtn = document.createElement('button');
-                    editBtn.textContent = 'Edytuj';
-                    editBtn.onclick = async () => {
-                        const newContent = await showPromptModal('Nowa treść zadania:', 'Wprowadź nową treść zadania:', task.content);
+                    buttonsDiv.innerHTML = `<button class="edit-btn">Edytuj</button><button class="toggle-btn">${task.visible === false ? 'Odkryj' : 'Ukryj'}</button><button class="delete-task-btn">Usuń</button>`;
+                    buttonsDiv.querySelector('.edit-btn').onclick = async () => {
+                        const newContent = await showPromptModal('Nowa treść zadania', '', task.content);
                         if (newContent === null) return;
-                        const newAssignees = await showPromptModal('Nowi przypisani (oddzieleni średnikiem):', 'Wprowadź nowych przypisanych:', task.assignees || '');
+                        const newAssignees = await showPromptModal('Nowi przypisani', '(oddzieleni średnikiem)', Array.isArray(task.assignees) ? task.assignees.join(';') : task.assignees || '');
                         if (newAssignees === null) return;
-
-                        if (task.source === 'supabase') {
-                            await supabase.from('tasks').update({ content: newContent, assignees: newAssignees }).eq('id', task.id);
-                        } else { // firebase
-                            const taskRef = doc(db, `artifacts/${appId}/public/data/tasks`, task.id);
-                            await updateDoc(taskRef, { content: newContent, assignees: newAssignees });
-                        }
+                        const updateData = { content: newContent, assignees: newAssignees.split(';').map(s => s.trim()) };
+                        if (task.source === 'supabase') await supabase.from('tasks').update(updateData).eq('id', task.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/tasks`, task.id), updateData);
                         refreshAllData();
                     };
-
-                    const toggleBtn = document.createElement('button');
-                    toggleBtn.textContent = task.visible === false ? 'Odkryj' : 'Ukryj';
-                    toggleBtn.onclick = async () => {
-                        if (task.source === 'supabase') {
-                            await supabase.from('tasks').update({ visible: !task.visible }).eq('id', task.id);
-                        } else { // firebase
-                            const taskRef = doc(db, `artifacts/${appId}/public/data/tasks`, task.id);
-                            await updateDoc(taskRef, { visible: !task.visible });
-                        }
+                    buttonsDiv.querySelector('.toggle-btn').onclick = async () => {
+                        const updateData = { visible: !(task.visible !== false) };
+                        if (task.source === 'supabase') await supabase.from('tasks').update(updateData).eq('id', task.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/tasks`, task.id), updateData);
                         refreshAllData();
                     };
-
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = 'Usuń';
-                    deleteBtn.classList.add('delete-task-btn');
-                    deleteBtn.onclick = async () => {
-                        const confirmed = await showConfirmModal('Potwierdź usunięcie', 'Czy na pewno chcesz usunąć to zadanie?');
-                        if (confirmed) {
-                            try {
-                                if (task.source === 'supabase') {
-                                    const { error } = await supabase.from('tasks').delete().eq('id', task.id);
-                                    if (error) throw error;
-                                } else { // firebase
-                                    const taskRef = doc(db, `artifacts/${appId}/public/data/tasks`, task.id);
-                                    await deleteDoc(taskRef);
-                                }
-                                refreshAllData();
-                            } catch (error) {
-                                showModal('Błąd', 'Nie udało się usunąć zadania: ' + (error.message || error.details || ''));
-                            }
+                    buttonsDiv.querySelector('.delete-task-btn').onclick = async () => {
+                        if (await showConfirmModal('Potwierdzenie', 'Czy na pewno chcesz usunąć to zadanie?')) {
+                            if (task.source === 'supabase') await supabase.from('tasks').delete().eq('id', task.id.replace('supabase-',''));
+                            else await deleteDoc(doc(db, `artifacts/${appId}/public/data/tasks`, task.id));
+                            refreshAllData();
                         }
                     };
-
-                    buttonsDiv.appendChild(editBtn);
-                    buttonsDiv.appendChild(toggleBtn);
-                    buttonsDiv.appendChild(deleteBtn);
                     itemDiv.appendChild(buttonsDiv);
                 }
-
                 targetElement.appendChild(itemDiv);
             });
         };
 
         if (isAdmin) {
-            const visibleTasks = allTasks.filter(t => t.visible !== false);
-            const hiddenTasks = allTasks.filter(t => t.visible === false);
-            renderList(visibleTasks, document.getElementById('admin-task-list-visible'));
-            renderList(hiddenTasks, document.getElementById('admin-task-list-hidden'));
+            renderList(allTasks.filter(t => t.visible !== false), listElement);
+            renderList(allTasks.filter(t => t.visible === false), hiddenListElement);
         } else {
-            const visibleTasks = allTasks.filter(t => t.visible !== false);
-            renderList(visibleTasks, listElement);
+            renderList(allTasks.filter(t => t.visible !== false), document.getElementById('user-task-list'));
         }
     }
 
-    async function renderOrders(listElement, isAdmin) {
+    async function renderOrders(isAdmin) {
+        const activeListElement = document.getElementById(isAdmin ? 'admin-order-list-active' : 'user-order-list');
+        const completedListElement = isAdmin ? document.getElementById('admin-order-list-completed') : null;
+
         if (!isAuthReady) {
-            if (listElement) listElement.innerHTML = 'Ładowanie uwierzytelniania...';
+            if (activeListElement) activeListElement.innerHTML = 'Ładowanie...';
             return;
         }
 
-        // Fetch orders from Supabase
         const { data: supabaseOrders, error: supabaseError } = await supabase.from('orders').select('*');
-        if (supabaseError) {
-            console.error('Supabase orders fetch error:', supabaseError);
-        }
-        const formattedSupabaseOrders = (supabaseOrders || []).map(order => ({
-            ...order,
-            source: 'supabase',
-            createdAt: order.created_at // Standardize naming
-        }));
+        if (supabaseError) console.error('Supabase orders fetch error:', supabaseError);
+        const formattedSupabaseOrders = (supabaseOrders || []).map(order => ({ ...order, done: order.is_completed, source: 'supabase', createdAt: order.created_at, id: `supabase-${order.id}` }));
 
-        // Fetch orders from Firebase
-        const firebaseOrdersColRef = collection(db, `artifacts/${appId}/public/data/orders`);
-        const firebaseOrdersSnapshot = await getDocs(firebaseOrdersColRef);
-        const firebaseOrders = firebaseOrdersSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            source: 'firebase',
-            createdAt: doc.data().createdAt?.toDate()
-        }));
+        const firebaseOrdersSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/orders`));
+        const firebaseOrders = firebaseOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'firebase', createdAt: doc.data().createdAt?.toDate() }));
 
         const allOrders = [...formattedSupabaseOrders, ...firebaseOrders];
-
         allOrders.sort((a, b) => {
             const aIsPriority = a.name.startsWith('!!!');
             const bIsPriority = b.name.startsWith('!!!');
-            if (aIsPriority && !bIsPriority) return -1;
-            if (!aIsPriority && bIsPriority) return 1;
-            if (a.createdAt && b.createdAt) {
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            }
-            return 0;
+            if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
+            return (b.createdAt ? new Date(b.createdAt) : 0) - (a.createdAt ? new Date(a.createdAt) : 0);
         });
 
         const renderList = (ordersToRender, targetElement) => {
             if (!targetElement) return;
-
-            targetElement.innerHTML = '';
-            if (ordersToRender.length === 0) {
-                targetElement.innerHTML = '<p>Brak pozycji do zamówienia.</p>';
-                return;
-            }
-
+            targetElement.innerHTML = ordersToRender.length === 0 ? '<p>Brak pozycji.</p>' : '';
             ordersToRender.forEach(order => {
                 const isPriority = order.name.startsWith('!!!');
+                const displayName = isPriority ? order.name.substring(3).trim() : order.name;
+                
                 const itemDiv = document.createElement('div');
-                itemDiv.classList.add('item-row', 'order-item');
-                itemDiv.classList.toggle('done', order.done);
-                if (isPriority) itemDiv.classList.add('priority');
+                itemDiv.className = `item-row order-item ${order.done ? 'done' : ''} ${isPriority ? 'priority' : ''}`;
                 itemDiv.dataset.orderId = order.id;
                 itemDiv.dataset.source = order.source;
 
                 const contentWrapper = document.createElement('div');
-                contentWrapper.classList.add('item-content-wrapper');
+                contentWrapper.className = 'item-content-wrapper';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = displayName;
+                
+                contentWrapper.append(nameSpan);
+                
+                const supplierInfo = document.createElement('span');
+                supplierInfo.classList.add('supplier-info');
+                supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
+                contentWrapper.appendChild(supplierInfo);
 
-                const mainCheckbox = document.createElement('input');
-                mainCheckbox.type = 'checkbox';
-                mainCheckbox.checked = order.done;
-                mainCheckbox.style.marginRight = '10px';
-                mainCheckbox.addEventListener('change', async () => {
-                    let updateFn;
-                    if (order.source === 'supabase') {
-                        updateFn = async () => supabase.from('orders').update({ done: mainCheckbox.checked }).eq('id', order.id);
-                    } else { // firebase
-                        const orderRef = doc(db, `artifacts/${appId}/public/data/orders`, order.id);
-                        updateFn = async () => updateDoc(orderRef, { done: mainCheckbox.checked });
-                    }
-                    try {
-                        const { error } = await updateFn();
-                        if (error) throw error;
-                        itemDiv.classList.toggle('done', mainCheckbox.checked);
-                    } catch (error) {
-                        showModal('Błąd', 'Błąd aktualizacji zamówienia! ' + (error.message || error.details || ''));
-                        mainCheckbox.checked = !mainCheckbox.checked;
-                    }
-                });
-
-                const orderNameSpan = document.createElement('span');
-                orderNameSpan.textContent = isPriority ? order.name.substring(3).trim() : order.name;
-                contentWrapper.appendChild(mainCheckbox);
-                contentWrapper.appendChild(orderNameSpan);
-
-                const sourceTag = document.createElement('span');
-                sourceTag.classList.add('source-tag', order.source);
-                sourceTag.textContent = order.source === 'supabase' ? 'Supabase' : 'Firebase';
-                contentWrapper.appendChild(sourceTag);
+                if (isAdmin && showSourceTagsAdmin) {
+                    const sourceTag = document.createElement('span');
+                    sourceTag.className = `source-tag ${order.source}`;
+                    sourceTag.textContent = order.source;
+                    contentWrapper.appendChild(sourceTag);
+                }
 
                 const rightSideInfo = document.createElement('div');
-                rightSideInfo.classList.add('right-aligned-info');
-                const supplierInfo = document.createElement('div');
-                supplierInfo.classList.add('supplier-info');
-                supplierInfo.textContent = 'Dostawca: ' + (order.supplier || 'brak');
-                rightSideInfo.appendChild(supplierInfo);
-                if (order.createdAt) {
-                    const dateInfo = document.createElement('div');
-                    dateInfo.classList.add('date-info');
-                    dateInfo.textContent = new Date(order.createdAt).toLocaleDateString('pl-PL');
-                    rightSideInfo.appendChild(dateInfo);
-                }
-                itemDiv.appendChild(contentWrapper);
-                itemDiv.appendChild(rightSideInfo);
+                rightSideInfo.className = 'right-aligned-info';
+                rightSideInfo.innerHTML = `${order.createdAt ? `<div class="date-info">${new Date(order.createdAt).toLocaleDateString('pl-PL')}</div>` : ''}`;
+                
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'order-buttons';
+                
+                const doneBtn = document.createElement('button');
+                doneBtn.textContent = 'Zamówione';
+                doneBtn.onclick = async () => {
+                    if (isPriority) new Audio('https://raw.githubusercontent.com/coffynerd/task_app/main/GLaDOS-770340.wav').play();
+                    const updateData = { done: true, is_completed: true };
+                    try {
+                        if (order.source === 'supabase') await supabase.from('orders').update(updateData).eq('id', order.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/orders`, order.id), updateData);
+                        refreshAllData();
+                    } catch (error) {
+                        showModal('Błąd', 'Nie udało się zaktualizować statusu zamówienia: ' + error.message);
+                    }
+                };
 
-
-                if (isAdmin) {
-                    const buttonsDiv = document.createElement('div');
-                    buttonsDiv.classList.add('order-buttons');
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = 'Usuń';
-                    deleteBtn.classList.add('delete-order-btn');
-                    deleteBtn.onclick = async () => {
-                        const confirmed = await showConfirmModal('Potwierdź usunięcie', 'Czy na pewno chcesz usunąć tę pozycję zamówienia?');
-                        if (confirmed) {
-                            try {
-                                if (order.source === 'supabase') {
-                                    const { error } = await supabase.from('orders').delete().eq('id', order.id);
-                                    if (error) throw error;
-                                } else { // firebase
-                                    const orderRef = doc(db, `artifacts/${appId}/public/data/orders`, order.id);
-                                    await deleteDoc(orderRef);
-                                }
-                                refreshAllData();
-                            } catch (error) {
-                                showModal('Błąd', 'Nie udało się usunąć zamówienia: ' + (error.message || error.details || ''));
-                            }
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edytuj';
+                editBtn.onclick = async () => {
+                    const newName = await showPromptModal('Nowa nazwa produktu', '', order.name);
+                    if (newName === null) return;
+                    const newSupplier = await showPromptModal('Nowy dostawca', '', order.supplier || '');
+                    if (newSupplier === null) return;
+                    const updateData = { name: newName, supplier: newSupplier };
+                    try {
+                        if (order.source === 'supabase') {
+                            await supabase.from('orders').update(updateData).eq('id', order.id.replace('supabase-',''));
+                        } else {
+                            await updateDoc(doc(db, `artifacts/${appId}/public/data/orders`, order.id), updateData);
                         }
-                    };
+                        refreshAllData();
+                    } catch(error) {
+                        showModal('Błąd', 'Nie udało się zaktualizować pozycji: ' + error.message);
+                    }
+                };
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Usuń';
+                deleteBtn.className = 'delete-order-btn';
+                deleteBtn.onclick = async () => {
+                    if (await showConfirmModal('Potwierdzenie', 'Czy na pewno chcesz usunąć tę pozycję?')) {
+                        try {
+                            if (order.source === 'supabase') {
+                                await supabase.from('orders').delete().eq('id', order.id.replace('supabase-',''));
+                            } else {
+                                await deleteDoc(doc(db, `artifacts/${appId}/public/data/orders`, order.id));
+                            }
+                            refreshAllData();
+                        } catch (error) {
+                            showModal('Błąd', 'Nie udało się usunąć pozycji: ' + error.message);
+                        }
+                    }
+                };
+                
+                // Determine which buttons to show
+                if (!isAdmin) {
+                    if (!order.done) {
+                        buttonsDiv.appendChild(doneBtn);
+                        if (order.source === 'firebase' && order.submittedByUserId === userId) {
+                            buttonsDiv.appendChild(editBtn);
+                        }
+                    }
+                } else { // Admin view
+                    if (!order.done) {
+                        buttonsDiv.appendChild(editBtn);
+                        buttonsDiv.appendChild(doneBtn);
+                    }
                     buttonsDiv.appendChild(deleteBtn);
-                    itemDiv.appendChild(buttonsDiv);
                 }
+                
+                itemDiv.append(contentWrapper, rightSideInfo, buttonsDiv);
+                targetElement.appendChild(itemDiv);
+            });
+        };
+        
+        const activeOrders = allOrders.filter(o => o.done !== true);
+        const completedOrders = allOrders.filter(o => o.done === true);
+        
+        if (isAdmin) {
+            renderList(activeOrders, activeListElement);
+            renderList(completedOrders, completedListElement);
+        } else {
+            renderList(activeOrders, activeListElement);
+        }
+    }
+    
+    async function renderNotes(isAdmin) {
+        if (!isAuthReady) return;
+        
+        const listEl = document.getElementById(isAdmin ? 'note-title-list' : 'user-note-title-list');
+        listEl.innerHTML = 'Ładowanie...';
+
+        const { data: supabaseNotes = [] } = await supabase.from('notes').select('*');
+        const formattedSupabaseNotes = supabaseNotes.map(n => ({ ...n, id: `supabase-${n.id}`, source: 'supabase', createdAt: n.created_at }));
+
+        const fbPath = isAdmin ? `artifacts/${appId}/public/data/notes` : `artifacts/${appId}/users/${userId}/notes`;
+        const fbSnapshot = await getDocs(collection(db, fbPath));
+        const firebaseNotes = fbSnapshot.docs.map(d => ({ ...d.data(), id: d.id, source: 'firebase', createdAt: d.data().createdAt?.toDate() }));
+        
+        const allNotes = [...formattedSupabaseNotes, ...firebaseNotes]
+            .filter(note => isAdmin || note.source === 'firebase' || note.is_public)
+            .sort((a, b) => (b.pinned ? 1 : -1) - (a.pinned ? 1 : -1) || (new Date(b.createdAt) - new Date(a.createdAt)));
+
+        listEl.innerHTML = allNotes.length === 0 ? 'Brak notatek.' : '';
+        allNotes.forEach(note => {
+            const item = document.createElement('div');
+            item.className = `note-list-item ${note.pinned ? 'pinned' : ''} ${note.is_public ? 'public' : ''}`;
+            item.dataset.id = note.id;
+            item.dataset.source = note.source;
+            if ((isAdmin && note.id === currentAdminNoteId) || (!isAdmin && note.id === currentUserNoteId)) item.classList.add('selected');
+            
+            const titleHtml = `<span class="note-title" style="color:${note.titleColor || 'inherit'}">${note.title}</span>
+                               <span class="note-list-date">${note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}</span>
+                               ${(isAdmin && showSourceTagsAdmin) ? `<span class="source-tag ${note.source}">${note.source}</span>` : ''}`;
+            
+            item.innerHTML = `<div class="note-title-wrapper">${titleHtml}</div>`;
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'note-actions';
+            
+            const pinBtn = document.createElement('span');
+            pinBtn.className = 'note-pin-btn';
+            pinBtn.innerHTML = '&#128204;';
+            pinBtn.title = note.pinned ? 'Odepnij' : 'Przypnij';
+            pinBtn.onclick = (e) => { e.stopPropagation(); handleNoteAction('pin', note, isAdmin); };
+            
+            const publishBtn = document.createElement('span');
+            publishBtn.className = 'note-publish-btn';
+            publishBtn.innerHTML = '&#127760;'; // Globe icon
+            publishBtn.title = note.is_public ? 'Ustaw jako prywatną' : 'Udostępnij publicznie';
+            publishBtn.onclick = (e) => { e.stopPropagation(); handleNoteAction('publish', note, isAdmin); };
+            
+            if (note.source === 'firebase' || isAdmin) {
+                 actionsDiv.appendChild(pinBtn);
+                 actionsDiv.appendChild(publishBtn);
+            } else if (note.is_public && !isAdmin){
+                // users can't manage public supabase notes
+            }
+
+
+            item.appendChild(actionsDiv);
+            item.onclick = () => {
+                if (isAdmin) { currentAdminNoteId = note.id; loadAdminNoteIntoEditor(note); } 
+                else { currentUserNoteId = note.id; loadUserNoteIntoEditor(note); }
+                document.querySelectorAll('.note-list-item.selected').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+            };
+            listEl.appendChild(item);
+        });
+    }
+
+    async function renderVacationRequests(isAdmin) {
+       const userListElement = document.getElementById('user-schedule-request-list');
+       const adminVisibleListElement = document.getElementById('admin-schedule-request-list-visible');
+       const adminHiddenListElement = document.getElementById('admin-schedule-request-list-hidden');
+
+        if (!isAuthReady) {
+            if (userListElement) userListElement.innerHTML = 'Ładowanie uwierzytelniania...';
+            if (adminVisibleListElement) adminVisibleListElement.innerHTML = 'Ładowanie uwierzytelniania...';
+            return;
+        }
+
+        const { data: supabaseRequests, error: supabaseError } = await supabase.from('vacation_requests').select('*');
+        if (supabaseError) console.error('Supabase requests fetch error:', supabaseError);
+        const formattedSupabaseRequests = (supabaseRequests || []).map(req => ({ ...req, source: 'supabase', createdAt: req.created_at, id: `supabase-${req.id}` }));
+
+        const firebaseRequestsSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/vacation_requests`));
+        const firebaseRequests = firebaseRequestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'firebase', createdAt: doc.data().createdAt?.toDate() }));
+
+        let allRequests = [...formattedSupabaseRequests, ...firebaseRequests];
+        allRequests.sort((a, b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
+
+        const renderList = (requestsToRender, targetElement) => {
+            if (!targetElement) return;
+            targetElement.innerHTML = requestsToRender.length === 0 ? '<p>Brak wniosków.</p>' : '';
+            requestsToRender.forEach(req => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `item-row vacation-request ${req.is_accepted ? 'accepted' : ''}`;
+                itemDiv.dataset.id = req.id;
+                itemDiv.dataset.source = req.source;
+                itemDiv.dataset.visible = req.is_visible;
+
+                const contentWrapper = document.createElement('div');
+                contentWrapper.className = 'item-content-wrapper';
+                contentWrapper.innerHTML = `
+                    <span style="font-weight: bold; flex-shrink: 0; min-width: 150px;">${req.employee_name}</span>
+                    <span style="margin-left: 15px; flex-shrink: 0;">${req.start_date} do ${req.end_date}</span>
+                    <span style="margin-left: 15px; font-weight: bold; flex-shrink: 0; color: ${req.is_accepted ? 'green' : 'orange'};">(${req.is_accepted ? 'Zaakceptowany' : 'Oczekujący'})</span>
+                    <span style="flex-grow: 1; text-align: right; color: #666; padding: 0 20px;">${req.notes || ''}</span>
+                `;
+
+                if (isAdmin && showSourceTagsAdmin) {
+                     const sourceTag = document.createElement('span');
+                     sourceTag.className = `source-tag ${req.source}`;
+                     sourceTag.textContent = req.source;
+                     contentWrapper.appendChild(sourceTag);
+                }
+
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'right-aligned-info';
+                
+                let buttonsHtml = '';
+                if (isAdmin) {
+                    buttonsHtml = `
+                        <label style="cursor:pointer; margin-right: 10px;"><input type="checkbox" class="accept-vacation-checkbox" ${req.is_accepted ? 'checked' : ''}> Akceptuj</label>
+                        <button class="toggle-visibility-btn">${req.is_visible !== false ? 'Ukryj' : 'Pokaż'}</button>
+                        <button class="edit-vacation-btn">Edytuj</button>
+                        <button class="delete-vacation-btn">Usuń</button>`;
+                } else {
+                     buttonsHtml = `<button class="edit-vacation-btn">Edytuj</button>`;
+                }
+                
+                buttonsDiv.innerHTML = `<div>${buttonsHtml}</div>`;
+                itemDiv.append(contentWrapper, buttonsDiv);
                 targetElement.appendChild(itemDiv);
             });
         };
 
         if (isAdmin) {
-            const activeOrders = allOrders.filter(o => !o.done);
-            const completedOrders = allOrders.filter(o => o.done);
-            renderList(activeOrders, document.getElementById('admin-order-list-active'));
-            renderList(completedOrders, document.getElementById('admin-order-list-completed'));
-        } else {
-            renderList(allOrders, listElement);
-        }
-    }
-
-    async function renderUserOrders() {
-        return renderOrders(document.getElementById('user-order-list'), false);
-    }
-
-    async function renderAdminOrders() {
-        return renderOrders(null, true); // Admin view handles two lists
-    }
-
-
-    async function renderNotes(isAdmin) {
-        if (!isAuthReady) {
-            document.getElementById(isAdmin ? 'note-title-list' : 'user-note-title-list').innerHTML = 'Ładowanie uwierzytelniania...';
-            return;
-        }
-
-        const noteListElement = document.getElementById(isAdmin ? 'note-title-list' : 'user-note-title-list');
-        noteListElement.innerHTML = '';
-        let allNotes = [];
-
-        // Fetch notes from Supabase
-        const { data: supabaseNotes, error: supabaseError } = await supabase.from('notes').select('*');
-        if (supabaseError) {
-            console.error('Supabase notes fetch error:', supabaseError);
-        }
-        const formattedSupabaseNotes = (supabaseNotes || []).map(note => ({
-            ...note,
-            source: 'supabase',
-            createdAt: note.created_at, // Standardize naming
-            id: note.id
-        }));
-        allNotes.push(...formattedSupabaseNotes);
-
-        // Fetch notes from Firebase
-        let firebaseNotesColRef;
-        if (isAdmin) {
-            firebaseNotesColRef = collection(db, `artifacts/${appId}/public/data/notes`);
-        } else {
-            firebaseNotesColRef = collection(db, `artifacts/${appId}/users/${userId}/notes`);
-        }
-
-        const firebaseNotesSnapshot = await getDocs(firebaseNotesColRef);
-        const firebaseNotes = firebaseNotesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            source: 'firebase',
-            createdAt: doc.data().createdAt?.toDate()
-        }));
-        allNotes.push(...firebaseNotes);
-
-        allNotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by creation date
-
-        if (allNotes.length === 0) {
-            noteListElement.innerHTML = 'Brak notatek';
-            return;
-        }
-
-        allNotes.forEach(note => {
-            const noteItem = document.createElement('div');
-            noteItem.classList.add('note-list-item');
-            if ((isAdmin && note.id === currentAdminNoteId) || (!isAdmin && note.id === currentUserNoteId)) {
-                noteItem.classList.add('selected');
-            }
-            noteItem.dataset.id = note.id;
-            noteItem.dataset.source = note.source;
-
-            const titleWrapper = document.createElement('div');
-            titleWrapper.classList.add('note-title-wrapper');
-
-            const noteTitleSpan = document.createElement('span');
-            noteTitleSpan.classList.add('note-title');
-            noteTitleSpan.textContent = note.title;
-            if (note.titleColor) {
-                noteTitleSpan.style.color = note.titleColor;
-            }
-            titleWrapper.appendChild(noteTitleSpan);
-
-            if (note.createdAt) {
-                const dateSpan = document.createElement('span');
-                dateSpan.classList.add('note-list-date');
-                dateSpan.textContent = new Date(note.createdAt).toLocaleDateString('pl-PL');
-                titleWrapper.appendChild(dateSpan);
-            }
-
-            const sourceTag = document.createElement('span');
-            sourceTag.classList.add('source-tag', note.source);
-            sourceTag.textContent = note.source === 'supabase' ? 'Supabase' : 'Firebase';
-            titleWrapper.appendChild(sourceTag);
-
-            noteItem.appendChild(titleWrapper);
-
-            if (isAdmin) {
-                const actionsDiv = document.createElement('div');
-                actionsDiv.classList.add('note-actions');
-
-                const pinBtn = document.createElement('span');
-                pinBtn.classList.add('note-pin-btn');
-                pinBtn.innerHTML = '&#128204;'; // Pin icon
-                if (note.pinned) pinBtn.classList.add('pinned');
-                pinBtn.title = note.pinned ? 'Odepnij' : 'Przypnij';
-                pinBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const newPinnedState = !note.pinned;
-                    if (note.source === 'supabase') {
-                        await supabase.from('notes').update({ pinned: newPinnedState }).eq('id', note.id);
-                    } else {
-                        const noteRef = doc(db, firebaseNotesColRef, note.id);
-                        await updateDoc(noteRef, { pinned: newPinnedState });
-                    }
-                    renderNotes(isAdmin);
-                });
-                actionsDiv.appendChild(pinBtn);
-
-                const publishBtn = document.createElement('span');
-                publishBtn.classList.add('note-publish-btn');
-                publishBtn.innerHTML = '&#128275;'; // Lock icon
-                if (note.is_public) publishBtn.classList.add('public');
-                publishBtn.title = note.is_public ? 'Ustaw jako prywatną' : 'Ustaw jako publiczną';
-                publishBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const newPublicState = !note.is_public;
-                    if (note.source === 'supabase') {
-                        await supabase.from('notes').update({ is_public: newPublicState }).eq('id', note.id);
-                    } else {
-                        const noteRef = doc(db, firebaseNotesColRef, note.id);
-                        await updateDoc(noteRef, { is_public: newPublicState });
-                    }
-                    renderNotes(isAdmin);
-                });
-                actionsDiv.appendChild(publishBtn);
-
-                noteItem.appendChild(actionsDiv);
-            }
-
-
-            noteItem.addEventListener('click', () => {
-                if (isAdmin) {
-                    currentAdminNoteId = note.id;
-                    loadAdminNoteIntoEditor(note);
-                } else {
-                    currentUserNoteId = note.id;
-                    loadUserNoteIntoEditor(note);
-                }
-                document.querySelectorAll('.note-list-item').forEach(item => item.classList.remove('selected'));
-                noteItem.classList.add('selected');
-            });
-            noteListElement.appendChild(noteItem);
-        });
-    }
-
-    async function renderUserNotes() {
-        return renderNotes(false);
-    }
-
-    async function renderAdminNotes() {
-        return renderNotes(true);
-    }
-
-    async function renderVacationRequests(listElement, isAdmin) {
-        if (!isAuthReady) {
-            if (listElement) listElement.innerHTML = 'Ładowanie uwierzytelniania...';
-            return;
-        }
-
-        // Fetch requests from Supabase
-        const { data: supabaseRequests, error: supabaseError } = await supabase.from('vacation_requests').select('*');
-        if (supabaseError) {
-            console.error('Supabase vacation requests fetch error:', supabaseError);
-        }
-        const formattedSupabaseRequests = (supabaseRequests || []).map(req => ({
-            ...req,
-            source: 'supabase',
-            createdAt: req.created_at, // Standardize naming
-            id: req.id
-        }));
-
-        // Fetch requests from Firebase
-        const firebaseRequestsColRef = collection(db, `artifacts/${appId}/public/data/vacation_requests`);
-        let firebaseRequests = [];
-        const firebaseRequestsSnapshot = await getDocs(firebaseRequestsColRef);
-        firebaseRequests = firebaseRequestsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            source: 'firebase',
-            createdAt: doc.data().createdAt?.toDate()
-        }));
-
-        let allRequests = [...formattedSupabaseRequests, ...firebaseRequests];
-
-        // Apply filters for admin view
-        if (isAdmin) {
             const filterStart = document.getElementById('admin-filter-start').value;
             const filterEnd = document.getElementById('admin-filter-end').value;
+            let filteredData = allRequests;
+            if (filterStart) filteredData = filteredData.filter(req => new Date(req.end_date) >= new Date(filterStart));
+            if (filterEnd) filteredData = filteredData.filter(req => new Date(req.start_date) <= new Date(filterEnd));
+            
+            const visibleRequests = filteredData.filter(req => req.is_visible !== false);
+            const hiddenRequests = filteredData.filter(req => req.is_visible === false);
 
-            if (filterStart) {
-                allRequests = allRequests.filter(req => new Date(req.start_date) >= new Date(filterStart));
-            }
-            if (filterEnd) {
-                allRequests = allRequests.filter(req => new Date(req.end_date) <= new Date(filterEnd));
-            }
+            renderList(visibleRequests, adminVisibleListElement);
+            renderList(hiddenRequests, adminHiddenListElement);
+        } else {
+            const userVisibleRequests = allRequests.filter(req => req.is_visible !== false);
+            renderList(userVisibleRequests, userListElement);
         }
-
-        allRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        listElement.innerHTML = '';
-        if (allRequests.length === 0) {
-            listElement.innerHTML = '<p>Brak wniosków.</p>';
-            return;
-        }
-
-        allRequests.forEach(req => {
-            const reqDiv = document.createElement('div');
-            reqDiv.classList.add('item-row', 'vacation-request');
-            reqDiv.dataset.id = req.id;
-            reqDiv.dataset.source = req.source;
-            if (req.is_accepted) reqDiv.classList.add('accepted');
-
-            reqDiv.innerHTML = `
-                <div class="item-content-wrapper">
-                    <span style="font-weight: bold;">${req.employee_name}</span>
-                    <span class="source-tag ${req.source}">${req.source === 'supabase' ? 'Supabase' : 'Firebase'}</span>
-                    <span style="margin-left: 15px;">Od: ${req.start_date} do: ${req.end_date}</span>
-                    <span style="margin-left: 15px; color: #666;">Notatki: ${req.notes || 'Brak'}</span>
-                </div>
-                <div class="right-aligned-info">
-                    ${req.createdAt ? `<div class="date-info">${new Date(req.createdAt).toLocaleDateString('pl-PL')}</div>` : ''}
-                    ${isAdmin ? `
-                        <div>
-                            <input type="checkbox" class="accept-vacation-checkbox" data-id="${req.id}" ${req.is_accepted ? 'checked' : ''}> Akceptuj
-                            <button class="toggle-visibility-btn" data-id="${req.id}" data-visible="${req.is_visible}">${req.is_visible ? 'Ukryj' : 'Pokaż'}</button>
-                            <button class="edit-vacation-btn" data-id="${req.id}">Edytuj</button>
-                            <button class="delete-vacation-btn" data-id="${req.id}">Usuń</button>
-                        </div>
-                    ` : `
-                        <div>
-                             ${req.is_accepted ? '<span style="color: green; font-weight: bold;">Zaakceptowany</span>' : '<span style="color: orange;">Oczekuje</span>'}
-                             <button class="edit-vacation-btn" data-id="${req.id}">Edytuj</button>
-                             <button class="delete-vacation-btn" data-id="${req.id}">Usuń</button>
-                        </div>
-                    `}
-                </div>
-            `;
-            listElement.appendChild(reqDiv);
-        });
     }
-
-    async function renderUserScheduleRequests() {
-        // Filter for user-specific requests
-        if (!isAuthReady) return;
-
-        const firebaseRequestsColRef = collection(db, `artifacts/${appId}/public/data/vacation_requests`);
-        const q = query(firebaseRequestsColRef, where("submittedByUserId", "==", userId));
-        const firebaseRequestsSnapshot = await getDocs(q);
-        const firebaseRequests = firebaseRequestsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            source: 'firebase',
-            createdAt: doc.data().createdAt?.toDate()
-        }));
-
-        // For Supabase, we assume requests might not have a userId field directly for filtering easily
-        // If there was a 'submitted_by_user_id' in Supabase, we would filter it here too.
-        // For now, let's fetch all Supabase requests and display them, assuming they are "public" or not user-specific in the old system.
-        // In a real migration, you'd want to ensure consistent user linking across databases.
-        const { data: supabaseRequests, error: supabaseError } = await supabase.from('vacation_requests').select('*');
-        if (supabaseError) {
-            console.error('Supabase vacation requests fetch error:', supabaseError);
-        }
-        const formattedSupabaseRequests = (supabaseRequests || []).map(req => ({
-            ...req,
-            source: 'supabase',
-            createdAt: req.created_at,
-            id: req.id
-        }));
-
-        const allRequests = [...formattedSupabaseRequests, ...firebaseRequests];
-        allRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        const listElement = document.getElementById('user-schedule-request-list');
-        listElement.innerHTML = '';
-        if (allRequests.length === 0) {
-            listElement.innerHTML = '<p>Brak zgłoszonych wniosków.</p>';
-            return;
-        }
-
-        allRequests.forEach(req => {
-            const reqDiv = document.createElement('div');
-            reqDiv.classList.add('item-row', 'vacation-request');
-            reqDiv.dataset.id = req.id;
-            reqDiv.dataset.source = req.source;
-            if (req.is_accepted) reqDiv.classList.add('accepted');
-
-            reqDiv.innerHTML = `
-                <div class="item-content-wrapper">
-                    <span style="font-weight: bold;">${req.employee_name}</span>
-                    <span class="source-tag ${req.source}">${req.source === 'supabase' ? 'Supabase' : 'Firebase'}</span>
-                    <span style="margin-left: 15px;">Od: ${req.start_date} do: ${req.end_date}</span>
-                    <span style="margin-left: 15px; color: #666;">Notatki: ${req.notes || 'Brak'}</span>
-                </div>
-                <div class="right-aligned-info">
-                    ${req.createdAt ? `<div class="date-info">${new Date(req.createdAt).toLocaleDateString('pl-PL')}</div>` : ''}
-                    <div>
-                         ${req.is_accepted ? '<span style="color: green; font-weight: bold;">Zaakceptowany</span>' : '<span style="color: orange;">Oczekuje</span>'}
-                         <button class="edit-vacation-btn" data-id="${req.id}" data-source="${req.source}">Edytuj</button>
-                         <button class="delete-vacation-btn" data-id="${req.id}" data-source="${req.source}">Usuń</button>
-                    </div>
-                </div>
-            `;
-            listElement.appendChild(reqDiv);
-        });
-    }
-
-
-    async function renderAdminScheduleRequests() {
-        return renderVacationRequests(document.getElementById('admin-schedule-request-list'), true);
-    }
-
 
     async function refreshAllData() {
+        if (!isAuthReady) return;
         console.log("Odświeżanie danych...");
-        if (!isAuthReady) {
-             console.log("Auth not ready, skipping refreshAllData");
-             return;
-        }
-
-        const userPromises = [
-            renderTasks(document.getElementById('user-task-list'), false),
-            renderUserOrders(),
-            renderUserNotes(),
-            renderUserScheduleRequests()
-        ];
-        await Promise.all(userPromises);
-
-        if (isAdminInitialized) {
-            const adminPromises = [
-                renderTasks(null, true),
-                renderAdminOrders(),
-                renderAdminNotes(),
-                renderAdminScheduleRequests()
-            ];
-            await Promise.all(adminPromises);
+        const inAdminView = document.getElementById('admin-view').style.display === 'block';
+        await Promise.all([
+            renderTasks(inAdminView),
+            renderOrders(inAdminView),
+            renderNotes(inAdminView),
+            renderVacationRequests(inAdminView),
+        ]);
+        if (!inAdminView) {
+            await renderNotes(false);
         }
         console.log("Dane odświeżone.");
     }
+    
+    async function handleNoteAction(action, note, isAdmin) {
+        const source = note.source;
+        const noteId = source === 'supabase' ? note.id.replace('supabase-', '') : note.id;
+        const fbPath = isAdmin ? `artifacts/${appId}/public/data/notes` : `artifacts/${appId}/users/${userId}/notes`;
+        try {
+            if (action === 'pin') {
+                const newPinnedState = !note.pinned;
+                if (source === 'supabase') {
+                    const { error } = await supabase.from('notes').update({ is_pinned: newPinnedState }).eq('id', noteId);
+                    if (error) throw error;
+                } else {
+                    await updateDoc(doc(db, fbPath, noteId), { pinned: newPinnedState });
+                }
+            } else if (action === 'publish') {
+                const newPublicState = !note.is_public;
+                if (source === 'firebase' && !isAdmin && newPublicState) {
+                    if (!await showConfirmModal('Udostępnianie', 'Czy na pewno chcesz przenieść tę notatkę do publicznych? Ta akcja jest nieodwracalna.')) return;
+                    const publicNotesRef = collection(db, `artifacts/${appId}/public/data/notes`);
+                    const privateNoteRef = doc(db, `artifacts/${appId}/users/${userId}/notes`, noteId);
+                    const {id, source, ...noteData} = note;
+                    await addDoc(publicNotesRef, { ...noteData, is_public: true, ownerId: userId, originalId: noteId });
+                    await deleteDoc(privateNoteRef);
+                } else if (isAdmin) {
+                    if(source === 'supabase') {
+                        const { error } = await supabase.from('notes').update({ is_public: newPublicState }).eq('id', noteId);
+                        if (error) throw error;
+                    } else {
+                        const noteRef = doc(db, `artifacts/${appId}/public/data/notes`, noteId);
+                        await updateDoc(noteRef, { is_public: newPublicState });
+                    }
+                }
+            }
+            renderNotes(isAdmin);
+            if(!isAdmin) renderNotes(true);
+        } catch (error) {
+            showModal('Błąd', 'Nie udało się wykonać akcji na notatce: ' + error.message);
+        }
+    }
 
-    // --- USER VIEW INITIALIZATION & NOTE LOGIC ---
+    // --- USER VIEW ---
     function clearUserEditor() {
         currentUserNoteId = null;
         document.getElementById('user-note-title-input').value = '';
@@ -1616,7 +1317,7 @@
         document.getElementById('user-note-content-input').innerHTML = '';
         document.getElementById('user-note-content-raw').value = '';
         document.getElementById('user-note-timestamps').textContent = '';
-        document.querySelectorAll('#user-note-title-list .note-list-item').forEach(item => item.classList.remove('selected'));
+        document.querySelectorAll('#user-note-title-list .selected').forEach(item => item.classList.remove('selected'));
         editorMode.user = 'render';
         document.getElementById('user-note-content-input').style.display = 'block';
         document.getElementById('user-note-content-raw').style.display = 'none';
@@ -1625,13 +1326,11 @@
 
     function loadUserNoteIntoEditor(note) {
         currentUserNoteId = note.id;
-        document.getElementById('user-note-title-input').value = note.title;
+        document.getElementById('user-note-title-input').value = note.title || '';
         document.getElementById('user-note-color-input').value = note.titleColor || '#000000';
         document.getElementById('user-note-content-input').innerHTML = convertTextToHtml(note.content);
-        document.getElementById('user-note-content-raw').value = note.content;
-        document.getElementById('user-note-timestamps').textContent = note.updatedAt ? `Ostatnia edycja: ${new Date(note.updatedAt).toLocaleDateString('pl-PL')}` : '';
-
-        // Reset editor mode when loading a note
+        const timestamps = note.updatedAt ? `Ostatnia edycja: ${new Date(note.updatedAt.seconds * 1000).toLocaleString()}` : '';
+        document.getElementById('user-note-timestamps').textContent = timestamps;
         editorMode.user = 'render';
         document.getElementById('user-note-content-input').style.display = 'block';
         document.getElementById('user-note-content-raw').style.display = 'none';
@@ -1640,183 +1339,88 @@
 
     async function saveUserNote() {
         const title = document.getElementById('user-note-title-input').value.trim();
-        const titleColor = document.getElementById('user-note-color-input').value;
-        let content;
-
-        if (editorMode.user === 'raw') {
-            content = document.getElementById('user-note-content-raw').value;
-        } else {
-            content = convertRenderedToSource(document.getElementById('user-note-content-input'));
-        }
-
         if (!title) { showModal('Błąd', 'Tytuł notatki nie może być pusty!'); return; }
+        const content = editorMode.user === 'raw' ? document.getElementById('user-note-content-raw').value : convertRenderedToSource(document.getElementById('user-note-content-input'));
+        const noteData = { title, content, titleColor: document.getElementById('user-note-color-input').value, updatedAt: new Date() };
 
-        try {
-            if (currentUserNoteId) {
-                // Update existing note (Firebase only for user notes)
-                const noteRef = doc(db, `artifacts/${appId}/users/${userId}/notes`, currentUserNoteId);
-                await updateDoc(noteRef, {
-                    title,
-                    content,
-                    titleColor,
-                    updatedAt: new Date(),
-                });
-                showModal('Sukces', 'Notatka zaktualizowana w Firebase.');
-            } else {
-                // Add new note (Firebase only)
-                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/notes`), {
-                    title,
-                    content,
-                    titleColor,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    pinned: false,
-                    is_public: false, // User notes are private by default
-                    submittedByUserId: userId // Link to user
-                });
-                showModal('Sukces', 'Nowa notatka dodana do Firebase.');
-                clearUserEditor(); // Clear editor after saving new note
-            }
-            refreshAllData();
-        } catch (error) {
-            console.error('Błąd zapisu notatki:', error);
-            showModal('Błąd', 'Nie udało się zapisać notatki: ' + (error.message || ''));
+        const notesCollection = collection(db, `artifacts/${appId}/users/${userId}/notes`);
+        if (currentUserNoteId && !currentUserNoteId.startsWith('supabase')) {
+            await updateDoc(doc(notesCollection, currentUserNoteId), noteData);
+        } else {
+            await addDoc(notesCollection, { ...noteData, createdAt: new Date(), pinned: false, is_public: false, submittedByUserId: userId });
+            clearUserEditor();
         }
+        renderNotes(false);
     }
 
     function initUserView() {
-        document.getElementById('user-order-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('user-order-name').value;
-            const supplier = document.getElementById('user-order-supplier').value;
-
+        document.getElementById('user-order-form').onsubmit = async (e) => { 
+            e.preventDefault(); 
+            const nameInput = document.getElementById('user-order-name');
+            const supplierInput = document.getElementById('user-order-supplier');
             try {
-                // Add new orders to Firebase
-                await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), {
-                    name,
-                    supplier,
-                    done: false,
-                    createdAt: new Date(),
-                    submittedByUserId: userId // Link to user
+                await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), { 
+                    name: nameInput.value, 
+                    supplier: supplierInput.value, 
+                    done: false, 
+                    createdAt: new Date(), 
+                    submittedByUserId: userId 
                 });
-                e.target.reset();
-                showModal('Sukces', 'Pozycja zamówienia dodana do Firebase.');
-                refreshAllData();
+                nameInput.value = '';
+                supplierInput.value = '';
+                renderOrders(false);
             } catch (error) {
-                console.error('Błąd dodawania zamówienia:', error);
-                showModal('Błąd', 'Nie udało się dodać pozycji zamówienia: ' + (error.message || ''));
+                showModal('Błąd zapisu', 'Nie udało się dodać pozycji do Firebase. Sprawdź konsolę, aby uzyskać więcej informacji.');
+                console.error("Firebase addDoc error:", error);
             }
-        });
+        };
         document.getElementById('user-new-note-btn').onclick = clearUserEditor;
         document.getElementById('user-save-note-btn').onclick = saveUserNote;
-        document.getElementById('user-toggle-raw-btn').addEventListener('click', () => {
+        document.getElementById('user-toggle-raw-btn').onclick = (e) => { 
             const contentInput = document.getElementById('user-note-content-input');
             const rawInput = document.getElementById('user-note-content-raw');
-            const button = document.getElementById('user-toggle-raw-btn');
             if (editorMode.user === 'render') {
                 rawInput.value = convertRenderedToSource(contentInput);
                 contentInput.style.display = 'none';
                 rawInput.style.display = 'block';
                 editorMode.user = 'raw';
-                button.textContent = 'Podgląd Wizualny';
+                e.target.textContent = 'Podgląd Wizualny';
             } else {
                 contentInput.innerHTML = convertTextToHtml(rawInput.value);
                 rawInput.style.display = 'none';
                 contentInput.style.display = 'block';
                 editorMode.user = 'render';
-                button.textContent = 'Edytuj Kod';
+                e.target.textContent = 'Edytuj Kod';
             }
-        });
-
-        document.getElementById('user-schedule-request-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const employee_name = document.getElementById('user-employee-name').value;
-            const start_date = document.getElementById('user-start-date').value;
-            const end_date = document.getElementById('user-end-date').value;
-            const notes = document.getElementById('user-vacation-notes').value;
-
+        };
+        document.getElementById('user-schedule-request-form').onsubmit = async (e) => { 
+            e.preventDefault(); 
+            const form = e.target;
+            const employee_name = form.querySelector('#user-employee-name').value;
+            const start_date = form.querySelector('#user-start-date').value;
+            const end_date = form.querySelector('#user-end-date').value;
             if (new Date(end_date) < new Date(start_date)) {
                 showModal('Błąd', 'Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.');
                 return;
             }
-
+            localStorage.setItem('lastUserName', employee_name);
             try {
-                // Add new vacation requests to Firebase
                 await addDoc(collection(db, `artifacts/${appId}/public/data/vacation_requests`), {
-                    employee_name,
-                    start_date,
-                    end_date,
-                    notes,
-                    is_visible: true,
-                    is_accepted: false,
-                    createdAt: new Date(),
-                    submittedByUserId: userId // Link to user
+                    employee_name, start_date, end_date,
+                    notes: form.querySelector('#user-vacation-notes').value,
+                    is_visible: true, is_accepted: false, createdAt: new Date(), submittedByUserId: userId
                 });
-
-                showModal('Sukces', 'Wniosek został pomyślnie wysłany do Firebase.');
-                e.target.reset();
-                refreshAllData();
+                showModal('Sukces', 'Wniosek został wysłany.');
+                form.reset();
+                renderVacationRequests(false);
             } catch (error) {
-                console.error('Błąd wysyłania wniosku:', error);
-                showModal('Błąd', 'Nie udało się wysłać wniosku: ' + (error.message || ''));
+                showModal('Błąd zapisu', 'Nie udało się wysłać wniosku. Sprawdź konsolę, aby uzyskać więcej informacji.');
+                console.error("Firebase addDoc error:", error);
             }
-        });
-
-        document.getElementById('user-schedule-request-list').addEventListener('click', async (e) => {
-            const target = e.target;
-            const reqId = target.dataset.id;
-            const source = target.dataset.source;
-            if (!reqId) return;
-
-            if (target.classList.contains('edit-vacation-btn')) {
-                let currentData;
-                if (source === 'supabase') {
-                    const { data, error } = await supabase.from('vacation_requests').select('*').eq('id', reqId).single();
-                    if (error || !data) { showModal('Błąd', 'Nie można znaleźć wniosku w Supabase.'); return; }
-                    currentData = data;
-                } else { // firebase
-                    const reqDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId));
-                    if (!reqDoc.exists()) { showModal('Błąd', 'Nie można znaleźć wniosku w Firebase.'); return; }
-                    currentData = reqDoc.data();
-                }
-
-                const new_start_date = await showPromptModal('Nowa data rozpoczęcia:', 'Wprowadź nową datę rozpoczęcia:', currentData.start_date);
-                if (new_start_date === null) return;
-                const new_end_date = await showPromptModal('Nowa data zakończenia:', 'Wprowadź nową datę zakończenia:', currentData.end_date);
-                if (new_end_date === null) return;
-                const new_notes = await showPromptModal('Nowa notatka:', 'Wprowadź nową notatkę:', currentData.notes);
-                if (new_notes === null) return;
-
-                if (source === 'supabase') {
-                    await supabase.from('vacation_requests').update({ start_date: new_start_date, end_date: new_end_date, notes: new_notes }).eq('id', reqId);
-                } else { // firebase
-                    const reqRef = doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId);
-                    await updateDoc(reqRef, { start_date: new_start_date, end_date: new_end_date, notes: new_notes });
-                }
-                refreshAllData();
-            } else if (target.classList.contains('delete-vacation-btn')) {
-                const confirmed = await showConfirmModal('Potwierdź usunięcie', 'Czy na pewno chcesz usunąć ten wniosek?');
-                if (confirmed) {
-                    try {
-                        if (source === 'supabase') {
-                            const { error } = await supabase.from('vacation_requests').delete().eq('id', reqId);
-                            if (error) throw error;
-                        } else { // firebase
-                            const reqRef = doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId);
-                            await deleteDoc(reqRef);
-                        }
-                        refreshAllData();
-                    } catch (error) {
-                        showModal('Błąd', 'Nie udało się usunąć wniosku: ' + (error.message || error.details || ''));
-                    }
-                }
-            }
-        });
-
-        // initial data load, handled by onAuthStateChanged -> refreshAllData
+        };
     }
-
-    // --- ADMIN VIEW INITIALIZATION & NOTE LOGIC ---
+    
+    // --- ADMIN VIEW ---
     function clearAdminEditor() {
         currentAdminNoteId = null;
         document.getElementById('note-title-input').value = '';
@@ -1824,7 +1428,7 @@
         document.getElementById('note-content-input').innerHTML = '';
         document.getElementById('note-content-raw').value = '';
         document.getElementById('note-timestamps').textContent = '';
-        document.querySelectorAll('#note-title-list .note-list-item').forEach(item => item.classList.remove('selected'));
+        document.querySelectorAll('#note-title-list .selected').forEach(item => item.classList.remove('selected'));
         editorMode.admin = 'render';
         document.getElementById('note-content-input').style.display = 'block';
         document.getElementById('note-content-raw').style.display = 'none';
@@ -1833,13 +1437,12 @@
 
     function loadAdminNoteIntoEditor(note) {
         currentAdminNoteId = note.id;
-        document.getElementById('note-title-input').value = note.title;
+        document.getElementById('note-title-input').value = note.title || '';
         document.getElementById('note-color-input').value = note.titleColor || '#000000';
         document.getElementById('note-content-input').innerHTML = convertTextToHtml(note.content);
-        document.getElementById('note-content-raw').value = note.content;
-        document.getElementById('note-timestamps').textContent = note.updatedAt ? `Ostatnia edycja: ${new Date(note.updatedAt).toLocaleDateString('pl-PL')}` : '';
-
-        // Reset editor mode when loading a note
+        const ts = note.updatedAt || note.updated_at;
+        const date = ts ? (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts)) : null;
+        document.getElementById('note-timestamps').textContent = date ? `Ostatnia edycja: ${date.toLocaleString()}`: '';
         editorMode.admin = 'render';
         document.getElementById('note-content-input').style.display = 'block';
         document.getElementById('note-content-raw').style.display = 'none';
@@ -1848,368 +1451,263 @@
 
     async function saveAdminNote() {
         const title = document.getElementById('note-title-input').value.trim();
-        const titleColor = document.getElementById('note-color-input').value;
-        let content;
-
-        if (editorMode.admin === 'raw') {
-            content = document.getElementById('note-content-raw').value;
-        } else {
-            content = convertRenderedToSource(document.getElementById('note-content-input'));
-        }
-
-        if (!title) { showModal('Błąd', 'Tytuł notatki nie może być pusty!'); return; }
-
+        if (!title) { showModal('Błąd', 'Tytuł jest wymagany'); return; }
+        const content = editorMode.admin === 'raw' ? document.getElementById('note-content-raw').value : convertRenderedToSource(document.getElementById('note-content-input'));
+        const noteData = { title, content, titleColor: document.getElementById('note-color-input').value, updatedAt: new Date(), updated_at: new Date().toISOString() };
+        
         try {
             if (currentAdminNoteId) {
-                // Determine if updating Supabase or Firebase note
-                const selectedNoteItem = document.querySelector(`#note-title-list .note-list-item[data-id="${currentAdminNoteId}"]`);
-                const source = selectedNoteItem ? selectedNoteItem.dataset.source : 'firebase'; // Default to firebase if not found (newly created)
-
-                if (source === 'supabase') {
-                    await supabase.from('notes').update({ title, content, titleColor, updated_at: new Date().toISOString() }).eq('id', currentAdminNoteId);
-                    showModal('Sukces', 'Notatka zaktualizowana w Supabase.');
-                } else { // firebase
-                    const noteRef = doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId);
-                    await updateDoc(noteRef, {
-                        title,
-                        content,
-                        titleColor,
-                        updatedAt: new Date(),
-                    });
-                    showModal('Sukces', 'Notatka zaktualizowana w Firebase.');
+                if (currentAdminNoteId.startsWith('supabase')) {
+                    await supabase.from('notes').update(noteData).eq('id', currentAdminNoteId.replace('supabase-',''));
+                } else {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId), noteData);
                 }
-            } else {
-                // Add new note (Firebase only)
-                await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), {
-                    title,
-                    content,
-                    titleColor,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    pinned: false,
-                    is_public: false,
-                    submittedByUserId: userId // Link to admin user
-                });
-                showModal('Sukces', 'Nowa notatka dodana do Firebase.');
+            } else { // Create new note in Firebase (public)
+                await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...noteData, createdAt: new Date(), pinned: false, is_public: true });
                 clearAdminEditor();
             }
-            refreshAllData();
-        } catch (error) {
-            console.error('Błąd zapisu notatki:', error);
-            showModal('Błąd', 'Nie udało się zapisać notatki: ' + (error.message || ''));
+            renderNotes(true);
+        } catch(error) {
+            showModal('Błąd zapisu', 'Nie udało się zapisać notatki: ' + error.message);
         }
     }
-
+    
     async function deleteAdminNote() {
-        if (!currentAdminNoteId) { showModal('Błąd', 'Nie wybrano notatki do usunięcia.'); return; }
-
-        const confirmed = await showConfirmModal('Potwierdź usunięcie', 'Czy na pewno chcesz usunąć tę notatkę?');
-        if (!confirmed) return;
-
+        if (!currentAdminNoteId || !await showConfirmModal('Potwierdzenie', 'Na pewno usunąć tę notatkę?')) return;
         try {
-            const selectedNoteItem = document.querySelector(`#note-title-list .note-list-item[data-id="${currentAdminNoteId}"]`);
-            const source = selectedNoteItem ? selectedNoteItem.dataset.source : 'firebase';
-
-            if (source === 'supabase') {
-                await supabase.from('notes').delete().eq('id', currentAdminNoteId);
-                showModal('Sukces', 'Notatka usunięta z Supabase.');
-            } else { // firebase
-                const noteRef = doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId);
-                await deleteDoc(noteRef);
-                showModal('Sukces', 'Notatka usunięta z Firebase.');
+            if (currentAdminNoteId.startsWith('supabase')) {
+                await supabase.from('notes').delete().eq('id', currentAdminNoteId.replace('supabase-', ''));
+            } else {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId));
             }
             clearAdminEditor();
-            refreshAllData();
+            renderNotes(true);
         } catch (error) {
-            console.error('Błąd usuwania notatki:', error);
-            showModal('Błąd', 'Nie udało się usunąć notatki: ' + (error.message || ''));
+            showModal('Błąd', 'Nie udało się usunąć notatki: ' + error.message);
         }
     }
-
+    
     function initAdminView() {
-        document.getElementById('admin-task-form').addEventListener('submit', async (e) => {
+        document.getElementById('admin-task-form').onsubmit = async (e) => { 
             e.preventDefault();
-            const content = document.getElementById('admin-task-input').value.trim();
-            const assignees = document.getElementById('admin-assignee-input').value.trim();
-            if (!content) { showModal('Błąd', 'Treść zadania nie może być pusta!'); return; }
-
+            const form = e.target;
+            const content = form.querySelector('#admin-task-input').value.trim();
+            if (!content) return;
+            const assignees = form.querySelector('#admin-assignee-input').value.trim();
             try {
-                // Add new tasks to Firebase
                 await addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), {
-                    content,
-                    assignees: assignees.split(/[,;]/).map(s => s.trim()).filter(s => s),
-                    done: false,
-                    visible: true,
-                    createdAt: new Date(),
-                    submittedByUserId: userId // Link to admin user
+                    content, assignees: assignees.split(/[,;]/).map(s => s.trim()).filter(s => s),
+                    done: false, visible: true, createdAt: new Date(), submittedByUserId: userId
                 });
-                e.target.reset();
-                showModal('Sukces', 'Zadanie dodane do Firebase.');
-                refreshAllData();
+                form.reset();
+                renderTasks(true);
             } catch (error) {
-                console.error('Błąd dodawania zadania:', error);
-                showModal('Błąd', 'Nie udało się dodać zadania: ' + (error.message || ''));
+                showModal('Błąd zapisu', 'Nie udało się dodać zadania: ' + error.message);
             }
-        });
-        document.getElementById('admin-order-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('admin-order-name').value;
-            const supplier = document.getElementById('admin-order-supplier').value;
-
+        };
+        document.getElementById('admin-order-form').onsubmit = async (e) => { 
+            e.preventDefault(); 
+            const nameInput = document.getElementById('admin-order-name');
+            const supplierInput = document.getElementById('admin-order-supplier');
             try {
-                // Add new orders to Firebase
-                await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), {
-                    name,
-                    supplier,
-                    done: false,
-                    createdAt: new Date(),
-                    submittedByUserId: userId // Link to admin user
-                });
-                e.target.reset();
-                showModal('Sukces', 'Pozycja zamówienia dodana do Firebase.');
-                refreshAllData();
+                await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), { name: nameInput.value, supplier: supplierInput.value, done: false, createdAt: new Date(), submittedByUserId: userId });
+                nameInput.value = '';
+                supplierInput.value = '';
+                renderOrders(true);
             } catch (error) {
-                console.error('Błąd dodawania zamówienia:', error);
-                showModal('Błąd', 'Nie udało się dodać pozycji zamówienia: ' + (error.message || ''));
+                showModal('Błąd zapisu', 'Nie udało się dodać pozycji: ' + error.message);
             }
-        });
-
+        };
         document.getElementById('new-note-btn').onclick = clearAdminEditor;
         document.getElementById('save-note-btn').onclick = saveAdminNote;
         document.getElementById('delete-note-btn').onclick = deleteAdminNote;
-        document.getElementById('admin-toggle-raw-btn').addEventListener('click', () => {
+        document.getElementById('admin-toggle-raw-btn').onclick = (e) => {
             const contentInput = document.getElementById('note-content-input');
             const rawInput = document.getElementById('note-content-raw');
-            const button = document.getElementById('admin-toggle-raw-btn');
             if (editorMode.admin === 'render') {
                 rawInput.value = convertRenderedToSource(contentInput);
                 contentInput.style.display = 'none';
                 rawInput.style.display = 'block';
                 editorMode.admin = 'raw';
-                button.textContent = 'Podgląd Wizualny';
+                e.target.textContent = 'Podgląd Wizualny';
             } else {
                 contentInput.innerHTML = convertTextToHtml(rawInput.value);
                 rawInput.style.display = 'none';
                 contentInput.style.display = 'block';
                 editorMode.admin = 'render';
-                button.textContent = 'Edytuj Kod';
+                e.target.textContent = 'Edytuj Kod';
             }
-        });
-
-        document.getElementById('admin-schedule-request-form').addEventListener('submit', async (e) => {
+        };
+        document.getElementById('admin-schedule-request-form').onsubmit = async (e) => { 
             e.preventDefault();
-            const employee_name = document.getElementById('admin-employee-name').value;
-            const start_date = document.getElementById('admin-start-date').value;
-            const end_date = document.getElementById('admin-end-date').value;
-            const notes = document.getElementById('admin-vacation-notes').value;
-
+            const form = e.target;
+            const employee_name = form.querySelector('#admin-employee-name').value;
+            const start_date = form.querySelector('#admin-start-date').value;
+            const end_date = form.querySelector('#admin-end-date').value;
             if (new Date(end_date) < new Date(start_date)) {
                 showModal('Błąd', 'Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.');
                 return;
             }
-
             try {
-                // Add new vacation requests to Firebase
                 await addDoc(collection(db, `artifacts/${appId}/public/data/vacation_requests`), {
-                    employee_name,
-                    start_date,
-                    end_date,
-                    notes,
-                    is_visible: true,
-                    is_accepted: false,
-                    createdAt: new Date(),
-                    submittedByUserId: userId // Link to admin user
+                    employee_name, start_date, end_date,
+                    notes: form.querySelector('#admin-vacation-notes').value,
+                    is_visible: true, is_accepted: false, createdAt: new Date(), submittedByUserId: userId
                 });
-
-                showModal('Sukces', 'Wniosek został pomyślnie wysłany do Firebase.');
-                e.target.reset();
-                refreshAllData();
+                showModal('Sukces', 'Wniosek został wysłany.');
+                form.reset();
+                renderVacationRequests(true);
             } catch (error) {
-                console.error('Błąd wysyłania wniosku:', error);
-                showModal('Błąd', 'Nie udało się wysłać wniosku: ' + (error.message || ''));
+                showModal('Błąd zapisu', 'Nie udało się wysłać wniosku: ' + error.message);
             }
-        });
-
-        document.getElementById('admin-schedule-request-list').addEventListener('click', async (e) => {
-            const target = e.target;
-            const reqId = target.dataset.id;
-            const source = target.dataset.source;
-            if (!reqId) return;
-
-            if (target.classList.contains('accept-vacation-checkbox')) {
-                const is_accepted = target.checked;
-                if (source === 'supabase') {
-                    await supabase.from('vacation_requests').update({ is_accepted }).eq('id', reqId);
-                } else { // firebase
-                    const reqRef = doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId);
-                    await updateDoc(reqRef, { is_accepted });
-                }
-                target.closest('.vacation-request').classList.toggle('accepted', is_accepted);
-                refreshAllData(); // Refresh to ensure correct rendering if sorting changes
-            }
-            if (target.classList.contains('toggle-visibility-btn')) {
-                const is_visible = !(target.dataset.visible === 'true');
-                if (source === 'supabase') {
-                    await supabase.from('vacation_requests').update({ is_visible }).eq('id', reqId);
-                } else { // firebase
-                    const reqRef = doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId);
-                    await updateDoc(reqRef, { is_visible });
-                }
-                refreshAllData();
-            }
-            if (target.classList.contains('edit-vacation-btn')) {
-                let currentData;
-                if (source === 'supabase') {
-                    const { data, error } = await supabase.from('vacation_requests').select('*').eq('id', reqId).single();
-                    if (error || !data) { showModal('Błąd', 'Nie można znaleźć wniosku w Supabase.'); return; }
-                    currentData = data;
-                } else { // firebase
-                    const reqDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId));
-                    if (!reqDoc.exists()) { showModal('Błąd', 'Nie można znaleźć wniosku w Firebase.'); return; }
-                    currentData = reqDoc.data();
-                }
-
-                const new_start_date = await showPromptModal('Nowa data rozpoczęcia:', 'Wprowadź nową datę rozpoczęcia:', currentData.start_date);
-                if (new_start_date === null) return;
-                const new_end_date = await showPromptModal('Nowa data zakończenia:', 'Wprowadź nową datę zakończenia:', currentData.end_date);
-                if (new_end_date === null) return;
-                const new_notes = await showPromptModal('Nowa notatka:', 'Wprowadź nową notatkę:', currentData.notes);
-                if (new_notes === null) return;
-
-                if (source === 'supabase') {
-                    await supabase.from('vacation_requests').update({ start_date: new_start_date, end_date: new_end_date, notes: new_notes }).eq('id', reqId);
-                } else { // firebase
-                    const reqRef = doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId);
-                    await updateDoc(reqRef, { start_date: new_start_date, end_date: new_end_date, notes: new_notes });
-                }
-                refreshAllData();
-            }
-            if (target.classList.contains('delete-vacation-btn')) {
-                const confirmed = await showConfirmModal('Potwierdź usunięcie', 'Czy na pewno chcesz usunąć ten wniosek?');
-                if (confirmed) {
-                    try {
-                        if (source === 'supabase') {
-                            const { error } = await supabase.from('vacation_requests').delete().eq('id', reqId);
-                            if (error) throw error;
-                        } else { // firebase
-                            const reqRef = doc(db, `artifacts/${appId}/public/data/vacation_requests`, reqId);
-                            await deleteDoc(reqRef);
-                        }
-                        refreshAllData();
-                    } catch (error) {
-                        showModal('Błąd', 'Nie udało się usunąć wniosku: ' + (error.message || error.details || ''));
-                    }
-                }
-            }
-        });
-
-        document.getElementById('admin-filter-btn').addEventListener('click', refreshAllData);
-        document.getElementById('admin-clear-filter-btn').addEventListener('click', () => {
+        };
+        document.getElementById('admin-filter-btn').onclick = () => renderVacationRequests(true);
+        document.getElementById('admin-clear-filter-btn').onclick = () => {
             document.getElementById('admin-filter-start').value = '';
             document.getElementById('admin-filter-end').value = '';
-            refreshAllData();
-        });
-
-        // initial data load, handled by onAuthStateChanged -> refreshAllData
+            renderVacationRequests(true);
+        };
     }
 
-    function setupTaskListeners() {
-        const taskLists = [
-            document.getElementById('user-task-list'),
-            document.getElementById('admin-task-list-visible'),
-            document.getElementById('admin-task-list-hidden')
-        ];
-
-        taskLists.forEach(list => {
-            if (!list) return;
-            list.addEventListener('change', async (e) => {
-                if (e.target.classList.contains('subtask-checkbox')) {
-                    const checkbox = e.target;
-                    const textSpan = checkbox.nextElementSibling;
-                    const taskRow = checkbox.closest('.item-row');
-
-                    if (!taskRow) return;
-
-                    const taskId = taskRow.dataset.taskId;
-                    const source = taskRow.dataset.source;
-                    let fullContent = taskRow.dataset.fullContent;
-                    const clickedIndex = parseInt(checkbox.dataset.index, 10);
-                    const isChecked = checkbox.checked;
-
-                    textSpan.classList.toggle('done', isChecked);
-
-                    const subtaskRegex = /\((#|&)(.*?)\)/g;
-                    let currentIndex = 0;
-                    const newContent = fullContent.replace(subtaskRegex, (match, sign, text) => {
-                        if (currentIndex === clickedIndex) {
-                            const newSign = isChecked ? '&' : '#';
-                            return `(${newSign}${text})`;
-                        }
-                        currentIndex++;
-                        return match;
-                    });
-
-                    taskRow.dataset.fullContent = newContent;
-
-                    try {
-                        if (source === 'supabase') {
-                            const { error } = await supabase.from('tasks').update({ content: newContent }).eq('id', taskId);
-                            if (error) throw error;
-                        } else { // firebase
-                            const taskRef = doc(db, `artifacts/${appId}/public/data/tasks`, taskId);
-                            await updateDoc(taskRef, { content: newContent });
-                        }
-                    } catch (error) {
-                        showModal('Błąd', 'Nie udało się zaktualizować podzadania: ' + (error.message || error.details || ''));
-                        checkbox.checked = !isChecked;
-                        textSpan.classList.toggle('done', !isChecked);
-                        taskRow.dataset.fullContent = fullContent; // Revert content
-                    }
-                }
-            });
-        });
-    }
-
-    // --- APP INITIALIZATION ---
+    // --- EVENT LISTENERS & INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
         themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark') {
-            document.body.classList.add('dark-mode');
-        }
+        if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
         updateThemeIcon();
 
-        const savedView = localStorage.getItem('defaultView');
-        if (savedView === 'admin') {
+        if (localStorage.getItem('defaultView') === 'admin') {
             showAdminView();
         } else {
             initUserView();
+            document.getElementById('user-view').style.display = 'block';
         }
 
-        document.querySelectorAll('.refresh-btn').forEach(btn => btn.addEventListener('click', refreshAllData));
-        themeToggleButtons.forEach(btn => btn.addEventListener('click', toggleTheme));
-
-        // Hamburger Menu Logic
-        document.getElementById('user-hamburger-btn').addEventListener('click', () => {
-            document.getElementById('user-nav-links').classList.toggle('open');
-        });
-        document.getElementById('admin-hamburger-btn').addEventListener('click', () => {
-            document.getElementById('admin-nav-links').classList.toggle('open');
+        document.querySelectorAll('.refresh-btn').forEach(btn => btn.onclick = refreshAllData);
+        themeToggleButtons.forEach(btn => btn.onclick = toggleTheme);
+        document.querySelectorAll('.hamburger-btn').forEach(btn => {
+            btn.onclick = () => btn.closest('.nav-bar').querySelector('.nav-links').classList.toggle('open');
         });
 
-        // Handle clicks on links within note content
-        function handleNoteClick(e) {
-            const link = e.target.closest('a');
-            if (link && link.href) {
+        document.body.addEventListener('click', (e) => {
+            const navLink = e.target.closest('a[data-page]');
+            if (navLink) {
                 e.preventDefault();
-                window.open(link.href, '_blank');
+                showPage(navLink.dataset.page);
+            }
+            if (e.target.closest('#switch-to-admin-btn') || e.target.closest('#admin-commands-btn')) handleCommandPrompt();
+            if (e.target.closest('#switch-to-user-btn')) switchToUser();
+
+            const vacationList = e.target.closest('#user-schedule-request-list, #admin-schedule-request-list-visible, #admin-schedule-request-list-hidden');
+            if(vacationList) handleVacationListClick(e, vacationList.id.includes('admin'));
+        });
+        
+        setupTaskListeners();
+        initUserView(); 
+        initAdminView();
+    });
+
+    function setupTaskListeners() {
+       document.body.addEventListener('change', async (e) => {
+           if(e.target.classList.contains('subtask-checkbox')) {
+                const checkbox = e.target;
+                const taskRow = checkbox.closest('.item-row');
+                const taskId = taskRow.dataset.taskId;
+                const source = taskRow.dataset.source;
+                let fullContent = taskRow.dataset.fullContent;
+                const clickedIndex = parseInt(checkbox.dataset.index, 10);
+                const isChecked = checkbox.checked;
+
+                checkbox.nextElementSibling.classList.toggle('done', isChecked);
+
+                let currentIndex = 0;
+                const newContent = fullContent.replace(/\((#|&)(.*?)\)/g, (match, sign, text) => {
+                    if (currentIndex++ === clickedIndex) return `(${isChecked ? '&' : '#'}${text})`;
+                    return match;
+                });
+                
+                try {
+                    const updateData = { content: newContent };
+                    if (source === 'supabase') {
+                       const { error } = await supabase.from('tasks').update(updateData).eq('id', taskId.replace('supabase-',''));
+                       if(error) throw error;
+                    } else {
+                       await updateDoc(doc(db, `artifacts/${appId}/public/data/tasks`, taskId), updateData);
+                    }
+                    taskRow.dataset.fullContent = newContent;
+                } catch (error) {
+                    showModal('Błąd', 'Nie udało się zaktualizować podzadania: ' + error.message);
+                    checkbox.checked = !isChecked; // Revert UI
+                    checkbox.nextElementSibling.classList.toggle('done', !isChecked);
+                    taskRow.dataset.fullContent = fullContent; // Revert dataset
+                }
+           }
+       });
+    }
+
+    async function handleVacationListClick(e, isAdmin) {
+        const target = e.target;
+        const reqDiv = target.closest('.vacation-request');
+        if (!reqDiv) return;
+
+        const reqId = reqDiv.dataset.id;
+        const source = reqDiv.dataset.source;
+        const dbId = reqId.replace('supabase-','');
+
+        if (target.matches('.accept-vacation-checkbox')) {
+            const updateData = { is_accepted: target.checked };
+            try {
+                if (source === 'supabase') await supabase.from('vacation_requests').update(updateData).eq('id', dbId);
+                else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, dbId), updateData);
+                reqDiv.classList.toggle('accepted', target.checked);
+            } catch(error) {
+                showModal('Błąd', 'Nie udało się zaktualizować statusu: ' + error.message);
+                target.checked = !target.checked;
+            }
+        } else if (target.matches('.toggle-visibility-btn')) {
+            const isCurrentlyVisible = reqDiv.dataset.visible !== 'false';
+            const newVisibility = !isCurrentlyVisible;
+            const updateData = { is_visible: newVisibility };
+            try {
+                if (source === 'supabase') await supabase.from('vacation_requests').update(updateData).eq('id', dbId);
+                else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, dbId), updateData);
+                renderVacationRequests(true);
+            } catch(error) {
+                showModal('Błąd', 'Nie udało się zmienić widoczności: ' + error.message);
+            }
+        } else if (target.matches('.edit-vacation-btn')) {
+            let currentData;
+            if (source === 'supabase') { const { data } = await supabase.from('vacation_requests').select('*').eq('id', dbId).single(); currentData = data; }
+            else { const docSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, dbId)); currentData = docSnap.data(); }
+            if (!currentData) return showModal('Błąd', 'Nie znaleziono wniosku.');
+            
+            const new_start_date = await showPromptModal('Nowa data od', '', currentData.start_date);
+            if (new_start_date === null) return;
+            const new_end_date = await showPromptModal('Nowa data do', '', currentData.end_date);
+            if (new_end_date === null) return;
+            const new_notes = await showPromptModal('Nowa notatka', '', currentData.notes);
+            if (new_notes === null) return;
+            const updateData = { start_date: new_start_date, end_date: new_end_date, notes: new_notes };
+
+            try {
+                if (source === 'supabase') await supabase.from('vacation_requests').update(updateData).eq('id', dbId);
+                else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, dbId), updateData);
+                renderVacationRequests(isAdmin);
+            } catch (error) {
+                showModal('Błąd', 'Nie udało się zedytować wniosku: ' + error.message);
+            }
+        } else if (target.matches('.delete-vacation-btn')) {
+            if (await showConfirmModal('Potwierdzenie', 'Czy na pewno chcesz usunąć ten wniosek?')) {
+                try {
+                    if (source === 'supabase') await supabase.from('vacation_requests').delete().eq('id', dbId);
+                    else await deleteDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, dbId));
+                    renderVacationRequests(isAdmin);
+                } catch(error) {
+                    showModal('Błąd', 'Nie udało się usunąć wniosku: ' + error.message);
+                }
             }
         }
-        document.getElementById('user-note-content-input').addEventListener('click', handleNoteClick);
-        document.getElementById('note-content-input').addEventListener('click', handleNoteClick);
-
-        setupTaskListeners();
-    });
+    }
 </script>
 </body>
 </html>
+
