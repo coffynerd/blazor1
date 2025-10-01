@@ -1111,20 +1111,20 @@
         listEl.innerHTML = 'Ładowanie...';
 
         const { data: supabaseNotes = [] } = await supabase.from('notes').select('*');
-        const formattedSupabaseNotes = supabaseNotes.map(n => ({ ...n, id: `supabase-${n.id}`, source: 'supabase', createdAt: n.created_at }));
+        const formattedSupabaseNotes = supabaseNotes.map(n => ({ ...n, id: `supabase-${n.id}`, source: 'supabase', createdAt: n.created_at, titleColor: n.title_color, pinned: n.is_pinned, public: n.is_public }));
 
         const fbPath = isAdmin ? `artifacts/${appId}/public/data/notes` : `artifacts/${appId}/users/${userId}/notes`;
         const fbSnapshot = await getDocs(collection(db, fbPath));
         const firebaseNotes = fbSnapshot.docs.map(d => ({ ...d.data(), id: d.id, source: 'firebase', createdAt: d.data().createdAt?.toDate() }));
         
         const allNotes = [...formattedSupabaseNotes, ...firebaseNotes]
-            .filter(note => isAdmin || note.source === 'firebase' || note.is_public)
+            .filter(note => isAdmin || note.source === 'firebase' || note.public)
             .sort((a, b) => (b.pinned ? 1 : -1) - (a.pinned ? 1 : -1) || (new Date(b.createdAt) - new Date(a.createdAt)));
 
         listEl.innerHTML = allNotes.length === 0 ? 'Brak notatek.' : '';
         allNotes.forEach(note => {
             const item = document.createElement('div');
-            item.className = `note-list-item ${note.pinned ? 'pinned' : ''} ${note.is_public ? 'public' : ''}`;
+            item.className = `note-list-item ${note.pinned ? 'pinned' : ''} ${note.public ? 'public' : ''}`;
             item.dataset.id = note.id;
             item.dataset.source = note.source;
             if ((isAdmin && note.id === currentAdminNoteId) || (!isAdmin && note.id === currentUserNoteId)) item.classList.add('selected');
@@ -1146,17 +1146,40 @@
             
             const publishBtn = document.createElement('span');
             publishBtn.className = 'note-publish-btn';
-            publishBtn.innerHTML = '&#127760;'; // Globe icon
-            publishBtn.title = note.is_public ? 'Ustaw jako prywatną' : 'Udostępnij publicznie';
+            publishBtn.innerHTML = (note.public || note.is_public) ? '&#128275;' : '&#128274;';
+            publishBtn.title = (note.public || note.is_public) ? 'Ustaw jako prywatną' : 'Udostępnij publicznie';
             publishBtn.onclick = (e) => { e.stopPropagation(); handleNoteAction('publish', note, isAdmin); };
-            
-            if (note.source === 'firebase' || isAdmin) {
-                 actionsDiv.appendChild(pinBtn);
-                 actionsDiv.appendChild(publishBtn);
-            } else if (note.is_public && !isAdmin){
-                // users can't manage public supabase notes
-            }
 
+            const shareBtn = document.createElement('span');
+            shareBtn.className = 'note-share-btn';
+            shareBtn.innerHTML = '&#128279;';
+            shareBtn.title = 'Udostępnij (kopiuj link)';
+            shareBtn.onclick = (e) => {
+                e.stopPropagation();
+                if(note.uuid) {
+                    const shareLink = `https://coffynerd.github.io/publicnotebook/?uuid=${note.uuid}`;
+                    navigator.clipboard.writeText(shareLink).then(() => {
+                        showModal('Sukces', 'Link do notatki skopiowany do schowka.');
+                    }, () => {
+                        showModal('Błąd', 'Nie udało się skopiować linku.');
+                    });
+                } else {
+                    showModal('Błąd', 'Brak UUID do udostępnienia tej notatki.');
+                }
+            };
+            
+            actionsDiv.appendChild(pinBtn); 
+
+            if (isAdmin) {
+                 actionsDiv.appendChild(publishBtn);
+                 if(note.uuid) actionsDiv.appendChild(shareBtn);
+            } else { 
+                if (note.source === 'firebase') {
+                     actionsDiv.appendChild(publishBtn);
+                } else if (note.public || note.is_public) {
+                    if(note.uuid) actionsDiv.appendChild(shareBtn);
+                }
+            }
 
             item.appendChild(actionsDiv);
             item.onclick = () => {
@@ -1276,7 +1299,7 @@
         const fbPath = isAdmin ? `artifacts/${appId}/public/data/notes` : `artifacts/${appId}/users/${userId}/notes`;
         try {
             if (action === 'pin') {
-                const newPinnedState = !note.pinned;
+                const newPinnedState = !(note.pinned || note.is_pinned);
                 if (source === 'supabase') {
                     const { error } = await supabase.from('notes').update({ is_pinned: newPinnedState }).eq('id', noteId);
                     if (error) throw error;
@@ -1284,7 +1307,7 @@
                     await updateDoc(doc(db, fbPath, noteId), { pinned: newPinnedState });
                 }
             } else if (action === 'publish') {
-                const newPublicState = !note.is_public;
+                const newPublicState = !(note.public || note.is_public);
                 if (source === 'firebase' && !isAdmin && newPublicState) {
                     if (!await showConfirmModal('Udostępnianie', 'Czy na pewno chcesz przenieść tę notatkę do publicznych? Ta akcja jest nieodwracalna.')) return;
                     const publicNotesRef = collection(db, `artifacts/${appId}/public/data/notes`);
@@ -1327,9 +1350,10 @@
     function loadUserNoteIntoEditor(note) {
         currentUserNoteId = note.id;
         document.getElementById('user-note-title-input').value = note.title || '';
-        document.getElementById('user-note-color-input').value = note.titleColor || '#000000';
+        document.getElementById('user-note-color-input').value = note.titleColor || note.title_color ||'#000000';
         document.getElementById('user-note-content-input').innerHTML = convertTextToHtml(note.content);
-        const timestamps = note.updatedAt ? `Ostatnia edycja: ${new Date(note.updatedAt.seconds * 1000).toLocaleString()}` : '';
+        const date = note.updatedAt ? new Date(note.updatedAt.seconds * 1000) : new Date(note.updated_at || note.created_at);
+        const timestamps = `Ostatnia edycja: ${date.toLocaleString()}`;
         document.getElementById('user-note-timestamps').textContent = timestamps;
         editorMode.user = 'render';
         document.getElementById('user-note-content-input').style.display = 'block';
@@ -1438,9 +1462,9 @@
     function loadAdminNoteIntoEditor(note) {
         currentAdminNoteId = note.id;
         document.getElementById('note-title-input').value = note.title || '';
-        document.getElementById('note-color-input').value = note.titleColor || '#000000';
+        document.getElementById('note-color-input').value = note.titleColor || note.title_color || '#000000';
         document.getElementById('note-content-input').innerHTML = convertTextToHtml(note.content);
-        const ts = note.updatedAt || note.updated_at;
+        const ts = note.updatedAt || note.updated_at || note.createdAt;
         const date = ts ? (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts)) : null;
         document.getElementById('note-timestamps').textContent = date ? `Ostatnia edycja: ${date.toLocaleString()}`: '';
         editorMode.admin = 'render';
@@ -1453,17 +1477,18 @@
         const title = document.getElementById('note-title-input').value.trim();
         if (!title) { showModal('Błąd', 'Tytuł jest wymagany'); return; }
         const content = editorMode.admin === 'raw' ? document.getElementById('note-content-raw').value : convertRenderedToSource(document.getElementById('note-content-input'));
-        const noteData = { title, content, titleColor: document.getElementById('note-color-input').value, updatedAt: new Date(), updated_at: new Date().toISOString() };
+        const noteData = { title, content, title_color: document.getElementById('note-color-input').value, updated_at: new Date().toISOString() };
+        const firebaseNoteData = { title, content, titleColor: document.getElementById('note-color-input').value, updatedAt: new Date() };
         
         try {
             if (currentAdminNoteId) {
                 if (currentAdminNoteId.startsWith('supabase')) {
                     await supabase.from('notes').update(noteData).eq('id', currentAdminNoteId.replace('supabase-',''));
                 } else {
-                    await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId), noteData);
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId), firebaseNoteData);
                 }
-            } else { // Create new note in Firebase (public)
-                await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...noteData, createdAt: new Date(), pinned: false, is_public: true });
+            } else { 
+                await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...firebaseNoteData, createdAt: new Date(), pinned: false, is_public: true });
                 clearAdminEditor();
             }
             renderNotes(true);
