@@ -1138,15 +1138,16 @@
             shareBtn.title = 'Udostępnij (kopiuj link)';
             shareBtn.onclick = (e) => {
                 e.stopPropagation();
-                if(note.uuid) {
-                    const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', 'notatka.html')}?uuid=${note.uuid}`;
+                const identifier = note.uuid || note.id;
+                if(identifier) {
+                    const shareLink = `https://coffynerd.github.io/publicnotebook/?uuid=${identifier}`;
                     navigator.clipboard.writeText(shareLink).then(() => {
                         showModal('Sukces', 'Link do notatki skopiowany do schowka.');
                     }, () => {
                         showModal('Błąd', 'Nie udało się skopiować linku.');
                     });
                 } else {
-                    showModal('Błąd', 'Brak UUID do udostępnienia tej notatki.');
+                    showModal('Błąd', 'Brak identyfikatora do udostępnienia tej notatki.');
                 }
             };
             
