@@ -674,48 +674,6 @@
         modal.style.display = 'flex';
     }
 
-    const promptModal = document.getElementById('promptModal');
-    function showPromptModal(title, message, defaultValue = '') {
-        return new Promise(resolve => {
-            promptModal.querySelector('#promptModal-title').textContent = title;
-            promptModal.querySelector('#promptModal-message').textContent = message;
-            const input = promptModal.querySelector('#promptModal-input');
-            input.value = defaultValue;
-            promptModal.style.display = 'flex';
-            input.focus();
-
-            const close = (value) => {
-                promptModal.style.display = 'none';
-                promptModal.querySelector('#promptModal-ok-btn').onclick = null;
-                promptModal.querySelector('#promptModal-cancel-btn').onclick = null;
-                resolve(value);
-            };
-
-            promptModal.querySelector('#promptModal-ok-btn').onclick = () => close(input.value);
-            promptModal.querySelector('#promptModal-cancel-btn').onclick = () => close(null);
-        });
-    }
-
-    const confirmModal = document.getElementById('confirmModal');
-    function showConfirmModal(title, message) {
-        return new Promise(resolve => {
-            confirmModal.querySelector('#confirmModal-title').textContent = title;
-            confirmModal.querySelector('#confirmModal-message').textContent = message;
-            confirmModal.style.display = 'flex';
-
-            const close = (value) => {
-                confirmModal.style.display = 'none';
-                confirmModal.querySelector('#confirmModal-yes-btn').onclick = null;
-                confirmModal.querySelector('#confirmModal-no-btn').onclick = null;
-                resolve(value);
-            };
-
-            confirmModal.querySelector('#confirmModal-yes-btn').onclick = () => close(true);
-            confirmModal.querySelector('#confirmModal-no-btn').onclick = () => close(false);
-        });
-    }
-
-
     function showPage(pageId) {
         document.querySelectorAll('.content').forEach(div => div.classList.remove('active'));
         const page = document.getElementById(pageId);
@@ -762,7 +720,7 @@
         }
     };
 
-    async function handleCommandPrompt() {
+    function handleCommandPrompt() {
         const password = prompt("Wpisz hasło lub komendę:");
         if (password === null) return;
         if (passwordActions.hasOwnProperty(password)) {
@@ -879,7 +837,7 @@
                 taskContentContainer.innerHTML = parseTaskContent(isPriority ? task.content.substring(3).trim() : task.content);
                 contentWrapper.append(mainCheckbox, taskContentContainer);
 
-                if (isAdmin && showSourceTagsAdmin) {
+                if ((isAdmin || showSourceTagsAdmin) && showSourceTagsAdmin) {
                     const sourceTag = document.createElement('span');
                     sourceTag.className = `source-tag ${task.source}`;
                     sourceTag.textContent = task.source;
@@ -982,7 +940,7 @@
                 supplierInfo.textContent = `(${order.supplier || 'brak dostawcy'})`;
                 contentWrapper.appendChild(supplierInfo);
 
-                if (isAdmin && showSourceTagsAdmin) {
+                if ((isAdmin || showSourceTagsAdmin) && showSourceTagsAdmin) {
                     const sourceTag = document.createElement('span');
                     sourceTag.className = `source-tag ${order.source}`;
                     sourceTag.textContent = order.source;
@@ -1106,7 +1064,7 @@
             
             const titleHtml = `<span class="note-title" style="color:${note.titleColor || note.title_color || 'inherit'}">${note.title}</span>
                                <span class="note-list-date">${note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}</span>
-                               ${(isAdmin && showSourceTagsAdmin) ? `<span class="source-tag ${note.source}">${note.source}</span>` : ''}`;
+                               ${((isAdmin || showSourceTagsAdmin) && showSourceTagsAdmin) ? `<span class="source-tag ${note.source}">${note.source}</span>` : ''}`;
             
             item.innerHTML = `<div class="note-title-wrapper">${titleHtml}</div>`;
 
@@ -1131,16 +1089,13 @@
             shareBtn.title = 'Udostępnij (kopiuj link)';
             shareBtn.onclick = (e) => {
                 e.stopPropagation();
-                if(note.uuid) {
-                    const shareLink = `https://coffynerd.github.io/publicnotebook/?uuid=${note.uuid}`;
-                    navigator.clipboard.writeText(shareLink).then(() => {
-                        showModal('Sukces', 'Link do notatki skopiowany do schowka.');
-                    }, () => {
-                        showModal('Błąd', 'Nie udało się skopiować linku.');
-                    });
-                } else {
-                    showModal('Błąd', 'Brak UUID do udostępnienia tej notatki.');
-                }
+                const note_uuid = note.uuid || note.id;
+                const shareLink = `${window.location.origin}${window.location.pathname.replace('index.html', 'notatka.html')}?uuid=${note_uuid}`;
+                navigator.clipboard.writeText(shareLink).then(() => {
+                    showModal('Sukces', 'Link do notatki skopiowany do schowka.');
+                }, () => {
+                    showModal('Błąd', 'Nie udało się skopiować linku.');
+                });
             };
             
             actionsDiv.appendChild(pinBtn); 
@@ -1148,7 +1103,7 @@
             if (isAdmin) {
                  actionsDiv.appendChild(publishBtn);
             }
-            if(note.uuid) actionsDiv.appendChild(shareBtn);
+            if(note.uuid || note.source === 'firebase') actionsDiv.appendChild(shareBtn);
 
             item.appendChild(actionsDiv);
             item.onclick = () => {
@@ -1201,7 +1156,7 @@
                     <span style="flex-grow: 1; text-align: right; color: #666; padding: 0 20px;">${req.notes || ''}</span>
                 `;
 
-                if (isAdmin && showSourceTagsAdmin) {
+                if ((isAdmin || showSourceTagsAdmin) && showSourceTagsAdmin) {
                      const sourceTag = document.createElement('span');
                      sourceTag.className = `source-tag ${req.source}`;
                      sourceTag.textContent = req.source;
@@ -1265,7 +1220,7 @@
     async function handleNoteAction(action, note, isAdmin) {
         const source = note.source;
         const noteId = source === 'supabase' ? note.id.replace('supabase-', '') : note.id;
-        const fbPath = isAdmin ? `artifacts/${appId}/public/data/notes` : `artifacts/${appId}/users/${userId}/notes`;
+        const fbPath = `artifacts/${appId}/public/data/notes`;
         try {
             if (action === 'pin') {
                 const newPinnedState = !(note.pinned || note.is_pinned);
@@ -1276,13 +1231,13 @@
                     await updateDoc(doc(db, fbPath, noteId), { pinned: newPinnedState });
                 }
             } else if (action === 'publish') {
-                if (isAdmin) { // Only admin can toggle public status
+                if (isAdmin) {
                     const newPublicState = !(note.public || note.is_public);
                     if(source === 'supabase') {
                         const { error } = await supabase.from('notes').update({ is_public: newPublicState }).eq('id', noteId);
                         if (error) throw error;
                     } else {
-                        const noteRef = doc(db, `artifacts/${appId}/public/data/notes`, noteId);
+                        const noteRef = doc(db, fbPath, noteId);
                         await updateDoc(noteRef, { public: newPublicState });
                     }
                 } else {
@@ -1290,7 +1245,7 @@
                 }
             }
             renderNotes(isAdmin);
-            if(!isAdmin) renderNotes(true);
+            renderNotes(!isAdmin); // Refresh both views
         } catch (error) {
             showModal('Błąd', 'Nie udało się wykonać akcji na notatce: ' + error.message);
         }
@@ -1331,11 +1286,14 @@
         const content = editorMode.user === 'raw' ? document.getElementById('user-note-content-raw').value : convertRenderedToSource(document.getElementById('user-note-content-input'));
         const noteData = { title, content, titleColor: document.getElementById('user-note-color-input').value, updatedAt: new Date() };
 
-        // Users create new notes as public in the public collection
-        await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...noteData, createdAt: new Date(), pinned: false, public: true, submittedByUserId: userId, uuid: crypto.randomUUID() });
-        clearUserEditor();
+        if (currentUserNoteId && currentUserNoteId.startsWith('firebase')) {
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentUserNoteId), noteData);
+        } else {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...noteData, createdAt: new Date(), pinned: false, public: true, submittedByUserId: userId, uuid: crypto.randomUUID() });
+            clearUserEditor();
+        }
         renderNotes(false);
-        renderNotes(true); // Also refresh admin view in case it's open
+        renderNotes(true);
     }
 
     function initUserView() {
