@@ -755,19 +755,14 @@
                 return `<div class="raw-html-block">${part}</div>`;
             } else { // This is regular text
                 return part.split('\n').map(line => {
-                    let processedLine = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    const trimmed = processedLine.trim();
+                    let processedLine = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    const trimmed = line.trim();
 
                     if (trimmed.startsWith('# ')) {
-                        return `<div><input type="checkbox">${trimmed.substring(2)}</div>`;
+                        return `<div><input type="checkbox">${trimmed.substring(2).replace(/&/g, "&amp;")}</div>`;
                     }
-                    if (trimmed.startsWith('& ')) { // This check is for raw editor
-                        const content = trimmed.substring(2);
-                        return `<div><input type="checkbox" checked>${content}</div>`;
-                    }
-                     if (trimmed.startsWith('&amp; ')) { // This check is for already escaped content
-                        const content = trimmed.substring(5);
-                        return `<div><input type="checkbox" checked>${content}</div>`;
+                    if (trimmed.startsWith('& ')) { 
+                        return `<div><input type="checkbox" checked>${trimmed.substring(2).replace(/&/g, "&amp;")}</div>`;
                     }
                     
                     processedLine = processedLine.replace(buttonRegex, (match, buttonText, link) => {
@@ -1336,7 +1331,7 @@
         currentUserNoteId = note.id;
         const saveButton = document.getElementById('user-save-note-btn');
         
-        if(note.source === 'supabase' && note.submittedByUserId !== userId) {
+        if(note.source === 'supabase' || (note.source === 'firebase' && note.submittedByUserId !== userId)) {
             saveButton.disabled = true;
             saveButton.title = "Nie można edytować tej notatki.";
         } else {
