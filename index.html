@@ -1022,7 +1022,7 @@
                     };
                     itemDiv.appendChild(buttonsDiv);
                 } else {
-                    if (task.source === 'firebase' && task.submittedByUserId === userId) {
+                    if (task.source === 'firebase' && task.userAdded) {
                         const buttonsDiv = document.createElement('div');
                         buttonsDiv.innerHTML = `<button class="edit-btn">Edytuj</button><button class="delete-task-btn">Usuń</button>`;
                         buttonsDiv.querySelector('.edit-btn').onclick = async () => {
