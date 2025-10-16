@@ -275,6 +275,7 @@
             flex-grow: 1; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none;
         }
         .note-content-input { overflow-y: auto; }
+        .note-content-input div { min-height: 1.2em; }
         .note-content-input div { display: flex; align-items: center; }
         .note-content-input input[type="checkbox"] { margin-right: 8px; flex-shrink: 0; }
         .note-content-input img, .note-content-input video { max-width: 100%; height: auto; }
@@ -349,6 +350,14 @@
         }
         .dark-mode .source-tag.firebase {
             color: black;
+        }
+        .days-of-week {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .days-of-week label {
+            cursor: pointer;
         }
 
         /* --- MOBILE STYLES --- */
@@ -534,6 +543,7 @@
         <div class="nav-bar gray-nav">
             <div class="nav-links" id="admin-nav-links">
                 <a data-page="admin-tasks">Lista zadań</a>
+                <a data-page="admin-recurring-tasks">Zadania cykliczne</a>
                 <a data-page="admin-order">Do zamówienia</a>
                 <a data-page="admin-schedule">Grafik</a>
                 <a data-page="admin-schedule-requests">Wnioski do grafiku</a>
@@ -572,6 +582,26 @@
             <div id="admin-order-list-active"></div>
             <h3>Zamówienia zrealizowane (Supabase i Firebase)</h3>
             <div id="admin-order-list-completed"></div>
+        </div>
+         <div id="admin-recurring-tasks" class="content">
+            <h2>Zadania cykliczne</h2>
+            <form id="recurring-task-form">
+                <h3>Dodaj zadanie cykliczne</h3>
+                <input type="text" id="recurring-task-content" placeholder="Treść zadania" required>
+                <input type="text" id="recurring-task-assignees" placeholder="Przypisane osoby (średnik ;)">
+                <div class="days-of-week">
+                    <label><input type="checkbox" name="day" value="1"> Pn</label>
+                    <label><input type="checkbox" name="day" value="2"> Wt</label>
+                    <label><input type="checkbox" name="day" value="3"> Śr</label>
+                    <label><input type="checkbox" name="day" value="4"> Cz</label>
+                    <label><input type="checkbox" name="day" value="5"> Pt</label>
+                    <label><input type="checkbox" name="day" value="6"> So</label>
+                    <label><input type="checkbox" name="day" value="7"> Nd</label>
+                </div>
+                <button type="submit">Dodaj</button>
+            </form>
+            <h3>Istniejące zadania cykliczne</h3>
+            <div id="recurring-task-list"></div>
         </div>
         <div id="admin-schedule" class="content">
             <div class="page-header">
@@ -699,6 +729,7 @@
             userId = auth.currentUser?.uid || crypto.randomUUID();
             isAuthReady = true;
             console.log("Firebase Auth Ready. User ID:", userId);
+            await checkAndCreateRecurringTasks();
             refreshAllData();
         });
     } catch (error) {
@@ -847,80 +878,132 @@
     // --- NOTEBOOK HELPERS ---
     function convertTextToHtml(text) {
         if (!text) return '';
-        const buttonRegex = /\[(.*?)\]\{(.*?)\}/g;
-        const htmlBlockRegex = /\(html\){([\s\S]*?)}\(html\)/g;
-        const eanRegex = /ean\((?:["@']?)(\d+)(?:["']?)\)/g;
+        const lines = text.split('\n');
+        let inHtmlBlock = false;
+        let htmlContent = '';
+        const output = [];
 
-        let processedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        
-        processedText = processedText.replace(htmlBlockRegex, (match, htmlContent) => {
-            const unescapedHtml = htmlContent.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-            return `</div><div class="raw-html-block">${unescapedHtml}</div><div>`;
-        });
-        
-        processedText = processedText.replace(eanRegex, (match, code) => {
-            return `</div><div class="ean-barcode">${code}</div><div>`;
-        });
-        
-        const lines = processedText.split('\n');
-        const finalHtml = lines.map(line => {
-             if(line.includes('ean-barcode')) return line;
+        for (const line of lines) {
+            if (line.trim().startsWith('(html){')) {
+                inHtmlBlock = true;
+                htmlContent = line.substring(line.indexOf('{') + 1);
+                // Check for single line block
+                if (line.trim().endsWith('}(html)')) {
+                    htmlContent = htmlContent.slice(0, -6);
+                    output.push(`<div class="raw-html-block">${htmlContent}</div>`);
+                    inHtmlBlock = false;
+                    htmlContent = '';
+                }
+                continue;
+            }
+
+            if (inHtmlBlock) {
+                if (line.trim().endsWith('}(html)')) {
+                    htmlContent += '\n' + line.slice(0, -6);
+                    output.push(`<div class="raw-html-block">${htmlContent}</div>`);
+                    inHtmlBlock = false;
+                    htmlContent = '';
+                } else {
+                    htmlContent += '\n' + line;
+                }
+                continue;
+            }
+            
+            if (line.trim() === '') {
+                output.push('<div><br></div>');
+                continue;
+            }
+
+            let hasCheckbox = false;
+            let isChecked = false;
+            let lineContent = line;
 
             const trimmed = line.trim();
             if (trimmed.startsWith('# ')) {
-                return `<div><input type="checkbox">${trimmed.substring(2)}</div>`;
+                hasCheckbox = true;
+                isChecked = false;
+                lineContent = trimmed.substring(2);
+            } else if (trimmed.startsWith('& ')) {
+                hasCheckbox = true;
+                isChecked = true;
+                lineContent = trimmed.substring(2);
             }
-            if (trimmed.startsWith('& ')) { 
-                return `<div><input type="checkbox" checked>${trimmed.substring(2)}</div>`;
-            }
+
+            let renderedContent = lineContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            renderedContent = renderedContent.replace(/ean\((.+?)\)/g, (match, content) => {
+                const displayCode = content.replace(/[@"']/g, '');
+                const escapedMatch = match.replace(/'/g, '&apos;').replace(/"/g, '&quot;');
+                return `<span class="ean-barcode" data-ean-source="${escapedMatch}">${displayCode}</span>`;
+            });
             
-            let processedLine = line.replace(buttonRegex, (match, buttonText, link) => {
+            renderedContent = renderedContent.replace(/\[(.*?)\]\{(.*?)\}/g, (match, buttonText, link) => {
                 let href = link.trim();
-                if (!href.startsWith('http://') && !href.startsWith('https://')) {
-                    href = 'https://' + href;
-                }
+                if (!href.startsWith('http://') && !href.startsWith('https://')) href = 'https://' + href;
                 const unescapedButtonText = buttonText.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
                 return `<a href="${href}" target="_blank"><button>${unescapedButtonText}</button></a>`;
             });
             
-            return `<div>${processedLine}</div>`;
-        }).join('');
+            if (hasCheckbox) {
+                output.push(`<div><input type="checkbox" ${isChecked ? 'checked' : ''}>${renderedContent}</div>`);
+            } else {
+                output.push(`<div>${renderedContent}</div>`);
+            }
+        }
+        
+         if (inHtmlBlock) { // Just in case it's not closed
+            output.push(`<div class="raw-html-block">${htmlContent}</div>`);
+        }
 
-        return finalHtml;
+        return output.join('');
     }
+
 
     function convertRenderedToSource(element) {
         const lines = [];
-        element.childNodes.forEach(child => {
-            if (child.nodeType !== 1) { 
-                if (child.textContent.trim()) lines.push(child.textContent);
-                return;
-            }
-            if (child.classList.contains('raw-html-block')) {
-                lines.push(`(html){${child.innerHTML}}(html)`);
-                return;
-            }
-             if (child.classList.contains('ean-barcode')) {
-                lines.push(`ean(${child.textContent})`);
-                return;
-            }
+        element.childNodes.forEach(node => {
+            if (node.nodeType !== 1) return; 
 
-            const checkbox = child.querySelector('input[type="checkbox"]');
-            const link = child.querySelector('a');
-            const button = link ? link.querySelector('button') : null;
-
+            if (node.innerHTML === '<br>') {
+                lines.push('');
+                return;
+            }
+            
+            if (node.classList.contains('raw-html-block')) {
+                lines.push(`(html){${node.innerHTML}}(html)`);
+                return;
+            }
+            
+            let line = '';
+            const checkbox = node.querySelector('input[type="checkbox"]');
             if (checkbox) {
-                const prefix = checkbox.checked ? '& ' : '# ';
-                lines.push(prefix + child.textContent.trim());
-            } else if (link && button) {
-                const buttonText = button.textContent;
-                let href = link.getAttribute('href');
-                if (href.startsWith('https://')) href = href.substring(8);
-                else if (href.startsWith('http://')) href = href.substring(7);
-                lines.push(`[${buttonText}]{${href}}`);
-            } else {
-                lines.push(child.textContent);
+                line += checkbox.checked ? '& ' : '# ';
             }
+
+            const processNode = (currentNode) => {
+                 currentNode.childNodes.forEach(child => {
+                    if (child.nodeType === 3) { // Text Node
+                        line += child.textContent;
+                    } else if (child.nodeType === 1) { // Element Node
+                        if (child.tagName === 'INPUT' && child.type === 'checkbox') return;
+
+                        if (child.classList.contains('ean-barcode')) {
+                             line += child.dataset.eanSource.replace(/&apos;/g, "'").replace(/&quot;/g, '"');
+                        } else if (child.tagName === 'A' && child.querySelector('button')) {
+                            const button = child.querySelector('button');
+                            let href = child.getAttribute('href');
+                            if (href.startsWith('https://')) href = href.substring(8);
+                            else if (href.startsWith('http://')) href = href.substring(7);
+                            line += `[${button.textContent}]{${href}}`;
+                        } else {
+                           processNode(child); // Recurse
+                        }
+                    }
+                });
+            };
+            
+            processNode(node);
+            lines.push(line);
         });
         return lines.join('\n');
     }
@@ -1451,15 +1534,20 @@
         if (!isAuthReady) return;
         console.log("Odświeżanie danych...");
         const inAdminView = document.getElementById('admin-view').style.display === 'block';
-        await Promise.all([
+        const promises = [
             renderTasks(inAdminView),
             renderOrders(inAdminView),
-            renderNotes(inAdminView),
-            renderVacationRequests(inAdminView),
-        ]);
-        if (!inAdminView) {
-            await renderNotes(false);
+            renderNotes(true), 
+            renderNotes(false), 
+            renderVacationRequests(inAdminView)
+        ];
+
+        if (inAdminView) {
+            promises.push(renderRecurringTasks());
         }
+
+        await Promise.all(promises);
+        
         console.log("Dane odświeżone.");
     }
     
@@ -1808,7 +1896,137 @@
             document.getElementById('admin-filter-end').value = '';
             renderVacationRequests(true);
         };
+        document.getElementById('recurring-task-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const content = form.querySelector('#recurring-task-content').value.trim();
+            if (!content) return;
+            const assignees = form.querySelector('#recurring-task-assignees').value.trim();
+            const days = Array.from(form.querySelectorAll('input[name="day"]:checked')).map(cb => parseInt(cb.value));
+            
+            if(days.length === 0){
+                showModal('Błąd', 'Musisz wybrać co najmniej jeden dzień.');
+                return;
+            }
+
+            try {
+                 await addDoc(collection(db, `artifacts/${appId}/public/data/recurring_tasks`), {
+                    content,
+                    assignees: assignees.split(/[,;]/).map(s => s.trim()).filter(s => s),
+                    days,
+                    lastCreated: null
+                });
+                form.reset();
+                renderRecurringTasks();
+            } catch (error) {
+                 showModal('Błąd zapisu', 'Nie udało się dodać zadania cyklicznego: ' + error.message);
+            }
+        };
     }
+
+    // --- RECURRING TASKS ---
+    async function renderRecurringTasks() {
+        const listEl = document.getElementById('recurring-task-list');
+        if(!listEl) return;
+        listEl.innerHTML = 'Ładowanie...';
+        const recurringTasksSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/recurring_tasks`));
+        const recurringTasks = recurringTasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        listEl.innerHTML = recurringTasks.length === 0 ? '<p>Brak zadań cyklicznych.</p>' : '';
+        const dayNames = ['N/A', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
+
+        recurringTasks.forEach(task => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'item-row';
+            const days = task.days.map(d => dayNames[d]).join(', ');
+            itemDiv.innerHTML = `
+                <div class="item-content-wrapper">
+                    <span>${task.content}</span>
+                    <span class="assignees">Osoby: ${task.assignees.join(', ') || 'brak'}</span>
+                     <span class="assignees">Dni: ${days}</span>
+                </div>
+                 <div>
+                    <button class="edit-recurring-btn">Edytuj</button>
+                    <button class="delete-recurring-btn">Usuń</button>
+                </div>
+            `;
+             itemDiv.querySelector('.edit-recurring-btn').onclick = async () => {
+                const newContent = prompt('Nowa treść zadania:', task.content);
+                if (newContent === null) return;
+
+                const newAssignees = prompt('Nowi przypisani (oddzieleni średnikiem):', (task.assignees || []).join(';'));
+                if (newAssignees === null) return;
+
+                const newDaysStr = prompt('Nowe dni (cyfry 1-7 oddzielone przecinkami, 1=Pn, 7=Nd):', task.days.join(','));
+                if (newDaysStr === null) return;
+
+                const newDays = newDaysStr.split(',').map(d => parseInt(d.trim())).filter(d => d >= 1 && d <= 7);
+                if (newDays.length === 0) {
+                    showModal('Błąd', 'Musisz podać przynajmniej jeden poprawny dzień (1-7).');
+                    return;
+                }
+                
+                const updateData = {
+                    content: newContent,
+                    assignees: newAssignees.split(/[,;]/).map(s => s.trim()).filter(s => s),
+                    days: newDays
+                };
+                
+                try {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/recurring_tasks`, task.id), updateData);
+                    renderRecurringTasks();
+                } catch (error) {
+                    showModal('Błąd', 'Nie udało się zaktualizować zadania cyklicznego.');
+                }
+            };
+            itemDiv.querySelector('.delete-recurring-btn').onclick = async () => {
+                if (confirm('Czy na pewno chcesz usunąć to zadanie cykliczne?')) {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/recurring_tasks`, task.id));
+                    renderRecurringTasks();
+                }
+            };
+            listEl.appendChild(itemDiv);
+        });
+    }
+
+    async function checkAndCreateRecurringTasks() {
+        if (!isAuthReady) return;
+        console.log("Checking recurring tasks...");
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        let dayOfWeek = today.getDay(); 
+        if (dayOfWeek === 0) dayOfWeek = 7; 
+
+        const recurringTasksSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/recurring_tasks`));
+        
+        const promises = [];
+        let createdAny = false;
+
+        recurringTasksSnapshot.forEach(doc => {
+            const recurringTask = { id: doc.id, ...doc.data() };
+            if (recurringTask.days.includes(dayOfWeek) && recurringTask.lastCreated !== todayStr) {
+                console.log(`Creating recurring task: ${recurringTask.content}`);
+                createdAny = true;
+                promises.push(addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), {
+                    content: recurringTask.content,
+                    assignees: recurringTask.assignees,
+                    createdAt: new Date(),
+                    done: false,
+                    visible: true
+                }));
+                promises.push(updateDoc(doc.ref, { lastCreated: todayStr }));
+            }
+        });
+        
+        await Promise.all(promises);
+        if (createdAny) {
+             console.log("Finished creating recurring tasks, refreshing list.");
+            refreshAllData();
+        } else {
+             console.log("No new recurring tasks to create today.");
+        }
+    }
+
 
     // --- EVENT LISTENERS & INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
