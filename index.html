@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista Zadań</title>
+    <title>System Zarządzania</title>
     <link rel="icon" href="favicon.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+EAN13+Text&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+EAN13+Text&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --background-light: #f0f2f5;
@@ -18,13 +18,13 @@
             --surface-dark: #1e1e1e;
             --border-light: #ddd;
             --border-dark: #333;
-            --priority-color: #B8860B; /* Ciemny złoty dla trybu jasnego */
+            --priority-color: #B8860B;
             --supabase-source-color: #56a761;
             --firebase-source-color: #ffca28;
             --user-task-color: #007bff;
         }
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', Arial, sans-serif;
             margin: 0;
             background-color: var(--background-light);
             color: var(--text-light);
@@ -38,10 +38,9 @@
             align-items: center;
             justify-content: space-between;
             position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .nav-links {
-            flex-grow: 1;
-        }
+        .nav-links { flex-grow: 1; display: flex; overflow-x: auto; }
         .blue-nav { background-color: #004896; }
         .gray-nav { background-color: #6c757d; }
         .nav-bar a {
@@ -53,194 +52,106 @@
             text-decoration: none;
             cursor: pointer;
             transition: background-color 0.3s;
-        }
-        .blue-nav a:hover {
-            background-color: #ffc101;
-            color: black;
-        }
-        .gray-nav a:hover {
-            background-color: #5a6268;
-        }
-        .nav-actions {
-            display: flex;
-            align-items: center;
-        }
-        .theme-toggle-btn, .refresh-btn {
-            font-size: 1.5em;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0 10px;
-            color: white;
-        }
-        .hamburger-btn {
-            display: none;
-            font-size: 1.8em;
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: white;
-        }
-        .content {
-            padding: 20px 30px;
-            display: none;
-        }
-        .content.active {
-            display: block;
-        }
-        .item-row {
-            border-bottom: 1px solid var(--border-light);
-            padding: 10px 5px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .item-row.done {
-            color: red;
-            text-decoration: line-through;
-            background-color: #f9f9f9;
-        }
-        .item-row.priority {
-            color: var(--priority-color);
-            font-weight: bold;
-        }
-        .item-row.user-submitted {
-            color: var(--user-task-color);
-        }
-        .dark-mode .item-row.priority {
-            color: #ffc101;
-        }
-        .dark-mode .item-row.user-submitted {
-            color: #3399ff;
-        }
-        .item-row.user-submitted.done, .item-row.priority.done {
-            color: red;
-        }
-        .order-item.done {
-            text-decoration: none;
-        }
-        .item-row.due-date-warning:not(.done) .task-text-container,
-        .item-row.due-date-warning:not(.done) .due-date-text {
-            color: purple;
-            font-weight: bold;
-        }
-        .dark-mode .item-row.due-date-warning:not(.done) .task-text-container,
-        .dark-mode .item-row.due-date-warning:not(.done) .due-date-text {
-            color: #c58af9;
-        }
-
-        .item-content-wrapper {
-            display: flex;
-            align-items: center;
-            flex-grow: 1;
-        }
-        .assignees, .supplier-info {
-            color: #555;
-            font-size: 0.9em;
-            margin-left: 15px;
-        }
-        .date-info {
-            font-size: 0.8em;
-            color: #888;
-            margin-left: auto;
-            padding-left: 20px;
-            text-align: right;
             white-space: nowrap;
         }
-        .due-date-text {
-            margin-left: 15px;
-            font-size: 1em;
-            font-weight: normal;
+        .blue-nav a:hover { background-color: #ffc101; color: black; }
+        .gray-nav a:hover { background-color: #5a6268; }
+        .nav-actions { display: flex; align-items: center; }
+        .theme-toggle-btn, .refresh-btn {
+            font-size: 1.5em; background: none; border: none; cursor: pointer; padding: 0 10px; color: white;
         }
-        .right-aligned-info {
-            text-align: right;
+        .hamburger-btn {
+            display: none; font-size: 1.8em; background: none; border: none; cursor: pointer; color: white;
         }
+        .content { padding: 20px 30px; display: none; }
+        .content.active { display: block; }
+
+        /* --- ITEM ROWS --- */
+        .item-row {
+            border-bottom: 1px solid var(--border-light); padding: 10px 5px;
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+        }
+        .item-row.done { color: red; text-decoration: line-through; background-color: #f9f9f9; }
+        .item-row.priority { color: var(--priority-color); font-weight: bold; }
+        .item-row.user-submitted { color: var(--user-task-color); }
+        .item-row.user-submitted.done, .item-row.priority.done { color: red; }
+        .item-row.due-date-warning:not(.done) .task-text-container,
+        .item-row.due-date-warning:not(.done) .due-date-text { color: purple; font-weight: bold; }
+        .dark-mode .item-row.due-date-warning:not(.done) .task-text-container,
+        .dark-mode .item-row.due-date-warning:not(.done) .due-date-text { color: #c58af9; }
+        .item-content-wrapper { display: flex; align-items: center; flex-grow: 1; }
+        .assignees, .supplier-info { color: #555; font-size: 0.9em; margin-left: 15px; }
+        .date-info { font-size: 0.8em; color: #888; margin-left: auto; padding-left: 20px; text-align: right; white-space: nowrap; }
+        .due-date-text { margin-left: 15px; font-size: 1em; font-weight: normal; }
+        .right-aligned-info { text-align: right; }
+
+        /* --- INVENTORY STYLES --- */
+        .inventory-controls {
+            display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+            background: var(--surface-light); padding: 15px; border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); align-items: flex-end;
+        }
+        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
+        .filter-group label { font-size: 0.8em; margin-bottom: 5px; color: #666; }
+        .inventory-table {
+            width: 100%; border-collapse: collapse; background: var(--surface-light);
+            border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .inventory-table th, .inventory-table td {
+            padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-light);
+        }
+        .inventory-table th { background-color: #f8f9fa; font-weight: bold; color: #555; cursor: pointer; }
+        .inventory-table tr:hover { background-color: rgba(0,0,0,0.02); }
+        .price-tag { font-weight: bold; color: #28a745; }
+        .quantity-badge {
+            background: #e9ecef; padding: 4px 8px; border-radius: 12px; font-size: 0.9em; font-weight: bold;
+        }
+        .quantity-badge.low { background: #ffc107; color: #000; }
+        .quantity-badge.out { background: #dc3545; color: #fff; }
+        .barcode-display { font-family: 'Libre Barcode EAN13 Text', cursive; font-size: 40px; line-height: 1; color: #333; }
+
         h2, h3 { color: var(--text-light); }
         form {
-            margin-top: 20px;
-            margin-bottom: 20px;
-            background-color: var(--surface-light);
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-top: 20px; margin-bottom: 20px; background-color: var(--surface-light);
+            padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        form input, form textarea { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none; }
-
-        .vacation-request-form {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: flex-end;
+        form input, form textarea, .inventory-controls input, .inventory-controls select {
+            padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none;
         }
-        .vacation-request-form .vacation-form-row {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            flex: 1 1 200px;
-        }
-        .vacation-request-form textarea {
-            min-height: 36px;
-        }
-
-        .vacation-request-form button {
-            margin-left: 0;
-        }
-
+        .vacation-request-form { display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .vacation-request-form .vacation-form-row { display: flex; flex-direction: column; gap: 5px; flex: 1 1 200px; }
+        .vacation-request-form textarea { min-height: 36px; }
+        .vacation-request-form button { margin-left: 0; }
         button { margin-left: 10px; cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; color: white; background-color: #004896; transition: background-color 0.3s; }
         button:disabled { background-color: #aaa; cursor: not-allowed; }
         .item-row button { background-color: #6c757d; font-size: 0.8em; padding: 5px 8px; }
-        .google-sheet-iframe {
-            width: 100%;
-            height: 75vh;
-            border: 1px solid var(--border-light);
-            border-radius: 5px;
-        }
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .page-header a {
-            display: inline-block;
-            padding: 8px 16px;
-            background-color: #28a745;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 0.9em;
-            transition: background-color 0.3s;
-        }
-        .page-header a:hover {
-            background-color: #218838;
-        }
+        .google-sheet-iframe { width: 100%; height: 75vh; border: 1px solid var(--border-light); border-radius: 5px; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .page-header a { display: inline-block; padding: 8px 16px; background-color: #28a745; color: white; text-decoration: none; border-radius: 4px; font-size: 0.9em; transition: background-color 0.3s; }
+        .page-header a:hover { background-color: #218838; }
 
-        /* --- DARK MODE STYLES --- */
-        body.dark-mode {
-            background-color: var(--background-dark);
-            color: var(--text-dark);
-        }
+        /* --- DARK MODE --- */
+        body.dark-mode { background-color: var(--background-dark); color: var(--text-dark); }
         .dark-mode h2, .dark-mode h3 { color: var(--text-dark); }
-        .dark-mode form {
-            background-color: var(--surface-dark);
-            border: 1px solid var(--border-dark);
-        }
-        .dark-mode form input, .dark-mode form textarea, .dark-mode .note-content-input, .dark-mode .raw-editor, .dark-mode .modal-input {
-            background-color: #2a2a2a;
-            color: var(--text-dark);
-            border-color: #444;
-        }
+        .dark-mode form, .dark-mode .inventory-controls, .dark-mode .inventory-table { background-color: var(--surface-dark); border: 1px solid var(--border-dark); }
+        .dark-mode form input, .dark-mode form textarea, .dark-mode .note-content-input, .dark-mode .raw-editor, .dark-mode .modal-input, .dark-mode .inventory-controls input, .dark-mode .inventory-controls select { background-color: #2a2a2a; color: var(--text-dark); border-color: #444; }
         .dark-mode .item-row { border-bottom-color: var(--border-dark); }
         .dark-mode .item-row.done { background-color: #2c1d1d; }
         .dark-mode .assignees, .dark-mode .supplier-info, .dark-mode .date-info { color: #999; }
-        .dark-mode .google-sheet-iframe {
-            border-color: var(--border-dark);
-            filter: invert(90%) hue-rotate(180deg);
-        }
+        .dark-mode .google-sheet-iframe { border-color: var(--border-dark); filter: invert(90%) hue-rotate(180deg); }
+        .dark-mode .item-row.priority { color: #ffc101; }
+        .dark-mode .item-row.user-submitted { color: #3399ff; }
+        .dark-mode .item-row.due-date-warning:not(.done) .task-text-container,
+        .dark-mode .item-row.due-date-warning:not(.done) .due-date-text { color: #c58af9; }
+        .dark-mode .inventory-table th { background-color: #2c2c2c; color: #ccc; border-bottom-color: #444; }
+        .dark-mode .inventory-table td { border-bottom-color: #444; }
+        .dark-mode .barcode-display { color: #eee; filter: invert(1); }
+        .dark-mode .quantity-badge { background: #333; color: #fff; }
+        .dark-mode .quantity-badge.low { background: #5c4a04; color: #ffc107; }
+        .dark-mode .quantity-badge.out { background: #5c181f; color: #ff6b6b; }
+        .dark-mode .source-tag.firebase { color: black; }
 
-        /* --- STYLE DLA NOTATNIKA --- */
+        /* --- NOTEBOOK --- */
         .notebook-container { display: flex; gap: 20px; height: 80vh; }
         .note-list-column { flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border-light); padding-right: 20px; }
         .dark-mode .note-list-column { border-right-color: var(--border-dark); }
@@ -251,13 +162,7 @@
         .note-list-item { padding: 10px; border-bottom: 1px solid var(--border-light); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .note-title-wrapper { display: flex; align-items: baseline; flex-grow: 1; overflow: hidden; }
         .note-title { font-weight: bold; font-size: 1.1em; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-        .note-list-date {
-            font-size: 0.8em;
-            font-weight: normal;
-            color: #888;
-            margin-left: 8px;
-            white-space: nowrap;
-        }
+        .note-list-date { font-size: 0.8em; font-weight: normal; color: #888; margin-left: 8px; white-space: nowrap; }
         .dark-mode .note-list-date { color: #aaa; }
         .note-list-item:hover { background-color: rgba(0, 0, 0, 0.05); }
         .note-list-item.selected { background-color: #cccccc; color: #1c1c1c; }
@@ -271,12 +176,9 @@
         .editor-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         #note-title-input, #user-note-title-input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         #note-color-input, #user-note-color-input { height: 35px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; background-color: white; }
-        .note-content-input, .raw-editor {
-            flex-grow: 1; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none;
-        }
+        .note-content-input, .raw-editor { flex-grow: 1; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none; }
         .note-content-input { overflow-y: auto; }
-        .note-content-input div { min-height: 1.2em; }
-        .note-content-input div { display: flex; align-items: center; }
+        .note-content-input div { min-height: 1.2em; display: flex; align-items: center; }
         .note-content-input input[type="checkbox"] { margin-right: 8px; flex-shrink: 0; }
         .note-content-input img, .note-content-input video { max-width: 100%; height: auto; }
         #note-timestamps, #user-note-timestamps { font-size: 0.8em; color: #888; text-align: right; margin-top: 10px; padding-right: 10px; }
@@ -293,148 +195,44 @@
         .modal-content {
             background: var(--surface-light); color: var(--text-light); padding: 20px; border-radius: 8px; text-align: center; max-width: 90%; width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        .dark-mode .modal-content { background: var(--surface-dark); color: var(--text-dark); }
         .modal-content h4 { margin-top: 0; }
         .modal-content p { white-space: pre-wrap; }
-        .modal-input {
-            width: calc(100% - 20px);
-            padding: 8px;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .ean-barcode {
-            font-family: 'Libre Barcode EAN13 Text', system-ui;
-            font-size: 110px;
-            line-height: 1;
-        }
+        .modal-input { width: calc(100% - 20px); padding: 8px; margin-top: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .ean-barcode { font-family: 'Libre Barcode EAN13 Text', system-ui; font-size: 110px; line-height: 1; }
+        .subtask { display: inline-flex; align-items: center; margin: 0 5px; }
+        .subtask-text.done { text-decoration: line-through; }
+        .task-text-container { display: inline; }
+        .vacation-request.accepted { background-color: #d4edda; }
+        .vacation-request.rejected { background-color: #f8d7da; }
+        .source-tag { font-size: 0.7em; padding: 2px 5px; border-radius: 3px; margin-left: 5px; font-weight: normal; color: white; }
+        .source-tag.supabase { background-color: var(--supabase-source-color); }
+        .source-tag.firebase { background-color: var(--firebase-source-color); color: var(--text-light); }
+        .days-of-week { display: flex; gap: 10px; margin: 10px 0; }
+        .days-of-week label { cursor: pointer; }
 
-        /* --- SUBTASK STYLES --- */
-        .subtask {
-            display: inline-flex;
-            align-items: center;
-            margin: 0 5px;
-        }
-        .subtask-text.done {
-            text-decoration: line-through;
-        }
-        .task-text-container {
-            display: inline;
-        }
-        .vacation-request.accepted {
-            background-color: #d4edda;
-        }
-        .vacation-request.rejected {
-            background-color: #f8d7da;
-        }
-        .dark-mode .vacation-request.accepted {
-            background-color: #1c3d23;
-        }
-        .dark-mode .vacation-request.rejected {
-            background-color: #4d1f23;
-        }
-        .source-tag {
-            font-size: 0.7em;
-            padding: 2px 5px;
-            border-radius: 3px;
-            margin-left: 5px;
-            font-weight: normal;
-            color: white;
-        }
-        .source-tag.supabase {
-            background-color: var(--supabase-source-color);
-        }
-        .source-tag.firebase {
-            background-color: var(--firebase-source-color);
-            color: var(--text-light); /* Make text readable on light yellow */
-        }
-        .dark-mode .source-tag.firebase {
-            color: black;
-        }
-        .days-of-week {
-            display: flex;
-            gap: 10px;
-            margin: 10px 0;
-        }
-        .days-of-week label {
-            cursor: pointer;
-        }
-
-        /* --- MOBILE STYLES --- */
         @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-                flex-direction: column;
-                position: absolute;
-                top: 100%;
-                left: 0;
-                width: 100%;
-                background-color: inherit;
-                z-index: 1000;
-                box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            }
-            .nav-links.open {
-                display: flex;
-            }
-            .nav-bar a {
-                float: none;
-                text-align: left;
-            }
-            .nav-bar .nav-links {
-                flex-grow: 0;
-            }
-            .hamburger-btn {
-                display: block;
-            }
-            .nav-bar .nav-actions {
-                order: 2;
-            }
-            .nav-bar .nav-links {
-                order: 3;
-                width: 100%;
-            }
-            .nav-bar::before {
-                content: "Lista Zadań";
-                order: 1;
-                flex-grow: 1;
-                text-align: left;
-            }
-            .notebook-container {
-                flex-direction: column;
-                height: 75vh;
-            }
-            .note-list-column {
-                border-right: none;
-                padding-right: 0;
-                border-bottom: 1px solid var(--border-light);
-                padding-bottom: 20px;
-                margin-bottom: 20px;
-                flex-shrink: 0;
-                max-height: 30%;
-            }
-            .dark-mode .note-list-column {
-                border-bottom-color: var(--border-dark);
-            }
-            .content {
-                padding: 15px;
-            }
-            .order-item .order-buttons {
-                width: 100%;
-                text-align: left;
-                padding-top: 5px;
-            }
-            .order-item .order-buttons button {
-                margin-left: 0;
-                margin-right: 10px;
-            }
-            .vacation-request-form {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
-            }
-            .vacation-request-form .vacation-form-row {
-                flex: initial;
-            }
+            .nav-links { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; width: 100%; background-color: inherit; z-index: 1000; box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+            .nav-links.open { display: flex; }
+            .nav-bar a { float: none; text-align: left; }
+            .nav-bar .nav-links { flex-grow: 0; }
+            .hamburger-btn { display: block; }
+            .nav-bar .nav-actions { order: 2; }
+            .nav-bar .nav-links { order: 3; width: 100%; }
+            .nav-bar::before { content: "Lista Zadań"; order: 1; flex-grow: 1; text-align: left; }
+            .notebook-container { flex-direction: column; height: 75vh; }
+            .note-list-column { border-right: none; padding-right: 0; border-bottom: 1px solid var(--border-light); padding-bottom: 20px; margin-bottom: 20px; flex-shrink: 0; max-height: 30%; }
+            .dark-mode .note-list-column { border-bottom-color: var(--border-dark); }
+            .content { padding: 15px; }
+            .order-item .order-buttons { width: 100%; text-align: left; padding-top: 5px; }
+            .order-item .order-buttons button { margin-left: 0; margin-right: 10px; }
+            .vacation-request-form { flex-direction: column; align-items: stretch; gap: 10px; }
+            .vacation-request-form .vacation-form-row { flex: initial; }
+
+            /* Inventory Mobile */
+            .inventory-table thead { display: none; }
+            .inventory-table tr { display: block; border-bottom: 2px solid #444; margin-bottom: 10px; }
+            .inventory-table td { display: flex; justify-content: space-between; align-items: center; text-align: right; padding: 10px; }
+            .inventory-table td::before { content: attr(data-label); font-weight: bold; float: left; }
         }
     </style>
 </head>
@@ -455,12 +253,13 @@
             <a data-page="user-order">Do zamówienia</a>
             <a data-page="user-schedule">Grafik</a>
             <a data-page="user-schedule-requests">Wnioski do grafiku</a>
+            <a data-page="user-inventory">📦 Magazyn</a>
             <a data-page="user-notes">Notatnik</a>
             <a id="switch-to-admin-btn">Panel Administratora</a>
         </div>
         <div class="nav-actions">
             <button class="refresh-btn" title="Odśwież dane">🔄</button>
-            <button class="theme-toggle-btn"></button>
+            <button class="theme-toggle-btn">🌓</button>
             <button class="hamburger-btn" id="user-hamburger-btn">&#9776;</button>
         </div>
     </div>
@@ -488,6 +287,55 @@
         <h2>Grafik</h2>
         <iframe class="google-sheet-iframe" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTDEEc4cmeNHgLhQwp6zAXiUwhzwJSw0DYH-MV0XLEQBs9-2LvsklLOeSHbat4DZexTXeSad5MqzY_e/pubhtml?gid=0&single=true&widget=true&headers=false"></iframe>
     </div>
+    <div id="user-schedule-requests" class="content">
+        <h2>Złóż wniosek do grafiku</h2>
+        <form id="user-schedule-request-form" class="vacation-request-form">
+            <div class="vacation-form-row"><label for="user-employee-name">Imię i nazwisko:</label><input type="text" id="user-employee-name" required></div>
+            <div class="vacation-form-row"><label for="user-start-date">Data od:</label><input type="date" id="user-start-date" required></div>
+            <div class="vacation-form-row"><label for="user-end-date">Data do:</label><input type="date" id="user-end-date" required></div>
+            <div class="vacation-form-row"><label for="user-vacation-notes">Notatka:</label><textarea id="user-vacation-notes"></textarea></div>
+            <button type="submit">Wyślij wniosek</button>
+        </form>
+        <h3>Zgłoszone wnioski</h3>
+        <div id="user-schedule-request-list"></div>
+    </div>
+    <!-- NEW USER INVENTORY TAB -->
+    <div id="user-inventory" class="content">
+        <h2>Magazyn / Cennik</h2>
+        <div class="inventory-controls">
+            <div class="filter-group">
+                <label>Nazwa produktu:</label>
+                <input type="text" id="user-inv-search-name" placeholder="Wpisz nazwę...">
+            </div>
+            <div class="filter-group">
+                <label>Kod kreskowy (lub @skan):</label>
+                <input type="text" id="user-inv-search-code" placeholder="Skanuj kod...">
+            </div>
+            <div class="filter-group">
+                <label>Sortuj według:</label>
+                <select id="user-inv-sort">
+                    <option value="name_asc">Nazwa (A-Z)</option>
+                    <option value="name_desc">Nazwa (Z-A)</option>
+                    <option value="price_asc">Cena (rosnąco)</option>
+                    <option value="price_desc">Cena (malejąco)</option>
+                    <option value="qty_asc">Ilość (rosnąco)</option>
+                    <option value="qty_desc">Ilość (malejąco)</option>
+                </select>
+            </div>
+        </div>
+        <div id="user-inventory-count" style="margin-bottom: 10px; font-size: 0.9em; color: #888;"></div>
+        <table class="inventory-table">
+            <thead>
+            <tr>
+                <th>Produkt</th>
+                <th>Kod</th>
+                <th>Ilość</th>
+                <th>Cena (Brutto)</th>
+            </tr>
+            </thead>
+            <tbody id="user-inventory-list"></tbody>
+        </table>
+    </div>
     <div id="user-notes" class="content">
         <h2>Notatnik</h2>
         <div class="notebook-container">
@@ -512,31 +360,6 @@
             </div>
         </div>
     </div>
-    <div id="user-schedule-requests" class="content">
-        <h2>Złóż wniosek do grafiku</h2>
-        <form id="user-schedule-request-form" class="vacation-request-form">
-            <div class="vacation-form-row">
-                <label for="user-employee-name">Imię i nazwisko:</label>
-                <input type="text" id="user-employee-name" required>
-            </div>
-            <div class="vacation-form-row">
-                <label for="user-start-date">Data od:</label>
-                <input type="date" id="user-start-date" required>
-            </div>
-            <div class="vacation-form-row">
-                <label for="user-end-date">Data do:</label>
-                <input type="date" id="user-end-date" required>
-            </div>
-            <div class="vacation-form-row">
-                <label for="user-vacation-notes">Notatka:</label>
-                <textarea id="user-vacation-notes"></textarea>
-            </div>
-            <button type="submit">Wyślij wniosek</button>
-        </form>
-
-        <h3>Zgłoszone wnioski</h3>
-        <div id="user-schedule-request-list"></div>
-    </div>
 </div>
 
 <div id="admin-view" style="display: none;">
@@ -545,6 +368,7 @@
             <a data-page="admin-tasks">Lista zadań</a>
             <a data-page="admin-recurring-tasks">Zadania cykliczne</a>
             <a data-page="admin-order">Do zamówienia</a>
+            <a data-page="admin-inventory">📦 Magazyn</a>
             <a data-page="admin-schedule">Grafik</a>
             <a data-page="admin-schedule-requests">Wnioski do grafiku</a>
             <a data-page="admin-notes">Notatnik</a>
@@ -553,7 +377,7 @@
         </div>
         <div class="nav-actions">
             <button class="refresh-btn" title="Odśwież dane">🔄</button>
-            <button class="theme-toggle-btn"></button>
+            <button class="theme-toggle-btn">🌓</button>
             <button class="hamburger-btn" id="admin-hamburger-btn">&#9776;</button>
         </div>
     </div>
@@ -582,6 +406,43 @@
         <div id="admin-order-list-active"></div>
         <h3>Zamówienia zrealizowane (Supabase i Firebase)</h3>
         <div id="admin-order-list-completed"></div>
+    </div>
+    <!-- NEW ADMIN INVENTORY TAB -->
+    <div id="admin-inventory" class="content">
+        <h2>Zarządzanie Magazynem</h2>
+        <div class="inventory-controls">
+            <div class="filter-group">
+                <label>Nazwa produktu:</label>
+                <input type="text" id="admin-inv-search-name" placeholder="Wpisz nazwę...">
+            </div>
+            <div class="filter-group">
+                <label>Kod kreskowy (lub @skan):</label>
+                <input type="text" id="admin-inv-search-code" placeholder="Skanuj kod...">
+            </div>
+            <div class="filter-group">
+                <label>Sortuj według:</label>
+                <select id="admin-inv-sort">
+                    <option value="name_asc">Nazwa (A-Z)</option>
+                    <option value="name_desc">Nazwa (Z-A)</option>
+                    <option value="price_asc">Cena (rosnąco)</option>
+                    <option value="price_desc">Cena (malejąco)</option>
+                    <option value="qty_asc">Ilość (rosnąco)</option>
+                    <option value="qty_desc">Ilość (malejąco)</option>
+                </select>
+            </div>
+        </div>
+        <div id="admin-inventory-count" style="margin-bottom: 10px; font-size: 0.9em; color: #888;"></div>
+        <table class="inventory-table">
+            <thead>
+            <tr>
+                <th>Produkt</th>
+                <th>Kod</th>
+                <th>Ilość</th>
+                <th>Cena</th>
+            </tr>
+            </thead>
+            <tbody id="admin-inventory-list"></tbody>
+        </table>
     </div>
     <div id="admin-recurring-tasks" class="content">
         <h2>Zadania cykliczne</h2>
@@ -638,30 +499,16 @@
     <div id="admin-schedule-requests" class="content">
         <h2>Złóż wniosek do grafiku (tylko Firebase)</h2>
         <form id="admin-schedule-request-form" class="vacation-request-form">
-            <div class="vacation-form-row">
-                <label for="admin-employee-name">Imię i nazwisko:</label>
-                <input type="text" id="admin-employee-name" required>
-            </div>
-            <div class="vacation-form-row">
-                <label for="admin-start-date">Data od:</label>
-                <input type="date" id="admin-start-date" required>
-            </div>
-            <div class="vacation-form-row">
-                <label for="admin-end-date">Data do:</label>
-                <input type="date" id="admin-end-date" required>
-            </div>
-            <div class="vacation-form-row">
-                <label for="admin-vacation-notes">Notatka:</label>
-                <textarea id="admin-vacation-notes"></textarea>
-            </div>
+            <div class="vacation-form-row"><label for="admin-employee-name">Imię i nazwisko:</label><input type="text" id="admin-employee-name" required></div>
+            <div class="vacation-form-row"><label for="admin-start-date">Data od:</label><input type="date" id="admin-start-date" required></div>
+            <div class="vacation-form-row"><label for="admin-end-date">Data do:</label><input type="date" id="admin-end-date" required></div>
+            <div class="vacation-form-row"><label for="admin-vacation-notes">Notatka:</label><textarea id="admin-vacation-notes"></textarea></div>
             <button type="submit">Wyślij wniosek</button>
         </form>
         <h2>Zarządzaj wnioskami (Supabase i Firebase)</h2>
         <div class="filter-container" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-            <label for="admin-filter-start">Filtruj od:</label>
-            <input type="date" id="admin-filter-start">
-            <label for="admin-filter-end">do:</label>
-            <input type="date" id="admin-filter-end">
+            <label for="admin-filter-start">Filtruj od:</label><input type="date" id="admin-filter-start">
+            <label for="admin-filter-end">do:</label><input type="date" id="admin-filter-end">
             <button id="admin-filter-btn">Filtruj</button>
             <button id="admin-clear-filter-btn">Wyczyść</button>
         </div>
@@ -689,10 +536,10 @@
         messagingSenderId: "100516614463",
         appId: "1:100516614463:web:36fe37ee48cee575b8838a"
     };
+
     const supabaseUrl = 'https://ugznhwthaztruazsjbhu.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnem5od3RoYXp0cnVhenNqYmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NjU4NjAsImV4cCI6MjA2NDA0MTg2MH0.MlBkk-oKSRW7CaUiFf3Edo0KXamVlLaZfLuxGcWL4yU';
     const supabase = createClient(supabaseUrl, supabaseKey);
-
 
     // --- GLOBAL STATE AND VIEW MANAGEMENT ---
     let isAdminInitialized = false;
@@ -701,6 +548,8 @@
     let editorMode = { user: 'render', admin: 'render' };
     let currentUserNoteId = null;
     let currentAdminNoteId = null;
+    let inventoryData = []; // Store inventory locally for filtering
+    let themeToggleButtons; // Variable to hold theme buttons
 
     // --- Firebase Setup ---
     let app, db, auth, userId;
@@ -758,7 +607,6 @@
         document.getElementById('admin-nav-links').classList.remove('open');
     }
 
-    let themeToggleButtons;
     function updateThemeIcon() {
         const isDarkMode = document.body.classList.contains('dark-mode');
         if (themeToggleButtons) themeToggleButtons.forEach(btn => { btn.innerHTML = isDarkMode ? '&#9728;&#65039;' : '&#127769;'; });
@@ -875,6 +723,127 @@
         refreshAllData();
     }
 
+    // --- INVENTORY LOGIC (BATCHED) ---
+    async function loadInventory() {
+        if (!isAuthReady) return;
+        try {
+            const q = collection(db, `artifacts/${appId}/public/data/inventory_batches`);
+            const snapshot = await getDocs(q);
+
+            let allItems = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.products && Array.isArray(data.products)) {
+                    allItems = allItems.concat(data.products);
+                }
+            });
+
+            inventoryData = allItems;
+            renderInventory(false); // render user
+            renderInventory(true);  // render admin
+        } catch (e) { console.error("Inventory load error:", e); }
+    }
+
+    function renderInventory(isAdmin) {
+        const prefix = isAdmin ? 'admin' : 'user';
+        const listEl = document.getElementById(`${prefix}-inventory-list`);
+        const countEl = document.getElementById(`${prefix}-inventory-count`);
+        if(!listEl) return;
+
+        // 1. Get Filter Values
+        const nameSearch = document.getElementById(`${prefix}-inv-search-name`).value.toLowerCase();
+        const codeSearch = document.getElementById(`${prefix}-inv-search-code`).value.toLowerCase();
+        const sortValue = document.getElementById(`${prefix}-inv-sort`).value;
+
+        // 2. Filter
+        let filtered = inventoryData.filter(item => {
+            const n = item.name ? item.name.toLowerCase() : "";
+            const c = item.barcode ? item.barcode.toLowerCase() : "";
+            return (!nameSearch || n.includes(nameSearch)) && (!codeSearch || c.includes(codeSearch));
+        });
+
+        // 3. Sort
+        filtered.sort((a, b) => {
+            const [key, dir] = sortValue.split('_');
+            let valA = key === 'name' ? a.name : (key === 'price' ? a.price : a.quantity);
+            let valB = key === 'name' ? b.name : (key === 'price' ? b.price : b.quantity);
+
+            if (typeof valA === 'string') {
+                return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            } else {
+                return dir === 'asc' ? valA - valB : valB - valA;
+            }
+        });
+
+        // 4. Render Limit (100)
+        const displayLimit = 100;
+        const itemsToShow = filtered.slice(0, displayLimit);
+
+        if(countEl) countEl.textContent = `Wyświetlanie ${itemsToShow.length} z ${filtered.length} (całość: ${inventoryData.length})`;
+
+        if (itemsToShow.length === 0) {
+            listEl.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Brak wyników</td></tr>';
+            return;
+        }
+
+        listEl.innerHTML = itemsToShow.map(item => {
+            const qtyClass = item.quantity <= 0 ? 'out' : (item.quantity < 5 ? 'low' : '');
+            const barcodeHtml = item.barcode ? `<div class="barcode-display">${item.barcode}</div><div style="font-size:0.8em; color:#666">${item.barcode}</div>` : '-';
+            return `
+                <tr>
+                    <td data-label="Produkt"><strong>${item.name}</strong></td>
+                    <td data-label="Kod">${barcodeHtml}</td>
+                    <td data-label="Ilość"><span class="quantity-badge ${qtyClass}">${item.quantity} szt</span></td>
+                    <td data-label="Cena"><span class="price-tag">${parseFloat(item.price).toFixed(2)} zł</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // --- GLOBAL SCANNER LISTENER (@ detection) ---
+    let scannerBuffer = "";
+    let lastKeyTime = 0;
+
+    document.addEventListener('keydown', (e) => {
+        // Reset buffer if typing is too slow (manual entry vs scanner)
+        const now = Date.now();
+        if (now - lastKeyTime > 100) scannerBuffer = "";
+        lastKeyTime = now;
+
+        if (e.key.length === 1) scannerBuffer += e.key;
+
+        // Check if buffer matches format: @ followed by digits
+        if (scannerBuffer.startsWith('@') && /@\d+/.test(scannerBuffer)) {
+            // It looks like our special scanner code!
+            const code = scannerBuffer.substring(1); // remove @
+
+            // Determine visible view
+            const isAdmin = document.getElementById('admin-view').style.display === 'block';
+            const prefix = isAdmin ? 'admin' : 'user';
+
+            // Focus on Warehouse tab input
+            const codeInput = document.getElementById(`${prefix}-inv-search-code`);
+            const nameInput = document.getElementById(`${prefix}-inv-search-name`);
+
+            // Ensure we are on the correct tab to see results?
+            // The user requested auto-fill.
+            if(codeInput) {
+                if(nameInput) nameInput.value = ""; // Clear name search
+                codeInput.value = code;
+                codeInput.focus();
+
+                // Trigger filter update
+                renderInventory(isAdmin);
+
+                // Clear buffer so we don't keep appending
+                scannerBuffer = "";
+
+                // Prevent the characters from appearing in the previously focused field
+                e.preventDefault();
+            }
+        }
+    });
+
     // --- NOTEBOOK HELPERS ---
     function convertTextToHtml(text) {
         if (!text) return '';
@@ -957,53 +926,75 @@
         return output.join('');
     }
 
+    // Helper function to extract text content from a node, handling custom elements like EAN barcodes and buttons
+    function getNodeTextContent(node) {
+        let text = '';
+        node.childNodes.forEach(child => {
+            if (child.nodeType === Node.TEXT_NODE) {
+                text += child.textContent;
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+                if (child.tagName === 'BR') {
+                    text += '\n';
+                } else if (child.classList.contains('ean-barcode')) {
+                    text += child.dataset.eanSource.replace(/&apos;/g, "'").replace(/&quot;/g, '"');
+                } else if (child.tagName === 'A' && child.querySelector('button')) {
+                    const button = child.querySelector('button');
+                    let href = child.getAttribute('href');
+                    if (href.startsWith('https://')) href = href.substring(8);
+                    else if (href.startsWith('http://')) href = href.substring(7);
+                    text += `[${button.textContent}]{${href}}`;
+                } else {
+                    text += getNodeTextContent(child); // Recurse for nested elements
+                }
+            }
+        });
+        return text;
+    }
 
     function convertRenderedToSource(element) {
         const lines = [];
         element.childNodes.forEach(node => {
-            if (node.nodeType !== 1) return;
-
-            if (node.innerHTML === '<br>') {
-                lines.push('');
-                return;
-            }
-
-            if (node.classList.contains('raw-html-block')) {
-                lines.push(`(html){${node.innerHTML}}(html)`);
-                return;
-            }
-
             let line = '';
-            const checkbox = node.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                line += checkbox.checked ? '& ' : '# ';
+
+            if (node.nodeType === Node.TEXT_NODE) { // Handle direct text nodes
+                line = node.textContent;
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                // If it's an empty line div, handle it
+                if (node.innerHTML === '<br>') {
+                    lines.push('');
+                    return;
+                }
+
+                if (node.classList.contains('raw-html-block')) {
+                    lines.push(`(html){${node.innerHTML}}(html)`);
+                    return;
+                }
+
+                // Check for checkbox at the beginning of the line
+                const checkbox = node.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    line += checkbox.checked ? '& ' : '# ';
+                    // Clone the node and remove the checkbox to get its remaining text content
+                    const tempNode = node.cloneNode(true);
+                    const tempCheckbox = tempNode.querySelector('input[type="checkbox"]');
+                    if (tempCheckbox) tempCheckbox.remove();
+
+                    line += getNodeTextContent(tempNode);
+
+                } else {
+                    // If no checkbox, just get the text content of the div
+                    line += getNodeTextContent(node);
+                }
             }
-
-            const processNode = (currentNode) => {
-                currentNode.childNodes.forEach(child => {
-                    if (child.nodeType === 3) { // Text Node
-                        line += child.textContent;
-                    } else if (child.nodeType === 1) { // Element Node
-                        if (child.tagName === 'INPUT' && child.type === 'checkbox') return;
-
-                        if (child.classList.contains('ean-barcode')) {
-                            line += child.dataset.eanSource.replace(/&apos;/g, "'").replace(/&quot;/g, '"');
-                        } else if (child.tagName === 'A' && child.querySelector('button')) {
-                            const button = child.querySelector('button');
-                            let href = child.getAttribute('href');
-                            if (href.startsWith('https://')) href = href.substring(8);
-                            else if (href.startsWith('http://')) href = href.substring(7);
-                            line += `[${button.textContent}]{${href}}`;
-                        } else {
-                            processNode(child); // Recurse
-                        }
-                    }
-                });
-            };
-
-            processNode(node);
             lines.push(line);
         });
+
+        // Ensure that a completely empty editor (which might just have a single empty line in array)
+        // results in an empty string, not just a single newline.
+        if (lines.length === 1 && lines[0].trim() === '') {
+            return '';
+        }
+
         return lines.join('\n');
     }
 
@@ -1130,7 +1121,7 @@
                 rightSideInfo.className = 'right-aligned-info';
                 const assigneesList = Array.isArray(task.assignees) ? task.assignees : (typeof task.assignees === 'string' && task.assignees.length > 0 ? task.assignees.split(/[,;]/).map(s => s.trim()) : []);
                 rightSideInfo.innerHTML = `<div class="assignees">Osoby: ${assigneesList.length > 0 ? assigneesList.join(', ') : 'brak'}</div>
-                                           ${task.createdAt ? `<div class="date-info">${new Date(task.createdAt).toLocaleDateString('pl-PL')}</div>` : ''}`;
+                                            ${task.createdAt ? `<div class="date-info">${new Date(task.createdAt).toLocaleDateString('pl-PL')}</div>` : ''}`;
                 itemDiv.append(contentWrapper, rightSideInfo);
 
                 if (isAdmin) {
@@ -1543,6 +1534,10 @@
         if (!isAuthReady) return;
         console.log("Odświeżanie danych...");
         const inAdminView = document.getElementById('admin-view').style.display === 'block';
+
+        // Load Inventory First (Batched)
+        await loadInventory();
+
         const promises = [
             renderTasks(inAdminView),
             renderOrders(inAdminView),
@@ -1595,7 +1590,7 @@
         }
     }
 
-    // --- USER VIEW ---
+    // --- NOTEBOOK LOGIC (User) ---
     function clearUserEditor() {
         currentUserNoteId = null;
         document.getElementById('user-note-title-input').value = '';
@@ -1608,19 +1603,19 @@
         document.getElementById('user-note-content-input').style.display = 'block';
         document.getElementById('user-note-content-raw').style.display = 'none';
         document.getElementById('user-toggle-raw-btn').textContent = 'Edytuj Kod';
-        document.getElementById('user-save-note-btn').disabled = false;
-        document.getElementById('user-save-note-btn').title = "";
+        const saveBtn = document.getElementById('user-save-note-btn');
+        saveBtn.disabled = false;
+        saveBtn.title = "";
     }
 
     function loadUserNoteIntoEditor(note) {
         currentUserNoteId = note.id;
         const saveButton = document.getElementById('user-save-note-btn');
-
         saveButton.disabled = false;
         saveButton.title = "";
 
         document.getElementById('user-note-title-input').value = note.title || '';
-        document.getElementById('user-note-color-input').value = note.titleColor || note.title_color ||'#000000';
+        document.getElementById('user-note-color-input').value = note.titleColor || note.title_color || '#000000';
         document.getElementById('user-note-content-input').innerHTML = convertTextToHtml(note.content);
         const date = note.updatedAt ? new Date(note.updatedAt.seconds * 1000) : new Date(note.updated_at || note.created_at);
         const timestamps = `Ostatnia edycja: ${date.toLocaleString()}`;
@@ -1651,6 +1646,177 @@
         }
         renderNotes(false);
         renderNotes(true);
+    }
+
+    // --- NOTEBOOK LOGIC (Admin) ---
+    function clearAdminEditor() {
+        currentAdminNoteId = null;
+        document.getElementById('note-title-input').value = '';
+        document.getElementById('note-color-input').value = '#000000';
+        document.getElementById('note-content-input').innerHTML = '';
+        document.getElementById('note-content-raw').value = '';
+        document.getElementById('note-timestamps').textContent = '';
+        document.querySelectorAll('#note-title-list .selected').forEach(item => item.classList.remove('selected'));
+        editorMode.admin = 'render';
+        document.getElementById('note-content-input').style.display = 'block';
+        document.getElementById('note-content-raw').style.display = 'none';
+        document.getElementById('admin-toggle-raw-btn').textContent = 'Edytuj Kod';
+    }
+
+    function loadAdminNoteIntoEditor(note) {
+        currentAdminNoteId = note.id;
+        document.getElementById('note-title-input').value = note.title || '';
+        document.getElementById('note-color-input').value = note.titleColor || note.title_color || '#000000';
+        document.getElementById('note-content-input').innerHTML = convertTextToHtml(note.content);
+        const ts = note.updatedAt || note.updated_at || note.createdAt;
+        const date = ts ? (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts)) : new Date(ts);
+        document.getElementById('note-timestamps').textContent = date ? `Ostatnia edycja: ${date.toLocaleString()}`: '';
+        editorMode.admin = 'render';
+        document.getElementById('note-content-input').style.display = 'block';
+        document.getElementById('note-content-raw').style.display = 'none';
+        document.getElementById('admin-toggle-raw-btn').textContent = 'Edytuj Kod';
+    }
+
+    async function saveAdminNote() {
+        const title = document.getElementById('note-title-input').value.trim();
+        if (!title) { showModal('Błąd', 'Tytuł jest wymagany'); return; }
+        const content = editorMode.admin === 'raw' ? document.getElementById('note-content-raw').value : convertRenderedToSource(document.getElementById('note-content-input'));
+        const noteData = { title, content, title_color: document.getElementById('note-color-input').value, updated_at: new Date().toISOString() };
+        const firebaseNoteData = { title, content, titleColor: document.getElementById('note-color-input').value, updatedAt: new Date() };
+
+        try {
+            if (currentAdminNoteId) {
+                if (currentAdminNoteId.startsWith('supabase')) {
+                    await supabase.from('notes').update(noteData).eq('id', currentAdminNoteId.replace('supabase-',''));
+                } else {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId), firebaseNoteData);
+                }
+            } else {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...firebaseNoteData, createdAt: new Date(), pinned: false, public: false, uuid: crypto.randomUUID() });
+                clearAdminEditor();
+            }
+            renderNotes(true);
+        } catch(error) {
+            showModal('Błąd zapisu', 'Nie udało się zapisać notatki: ' + error.message);
+        }
+    }
+
+    async function deleteAdminNote() {
+        if (!currentAdminNoteId || !confirm('Czy na pewno chcesz usunąć tę notatkę?')) return;
+        try {
+            if (currentAdminNoteId.startsWith('supabase')) {
+                await supabase.from('notes').delete().eq('id', currentAdminNoteId.replace('supabase-', ''));
+            } else {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId));
+            }
+            clearAdminEditor();
+            renderNotes(true);
+        } catch (error) {
+            showModal('Błąd', 'Nie udało się usunąć notatki: ' + error.message);
+        }
+    }
+
+    // --- RECURRING TASKS ---
+    async function renderRecurringTasks() {
+        const listEl = document.getElementById('recurring-task-list');
+        if(!listEl) return;
+        listEl.innerHTML = 'Ładowanie...';
+        const recurringTasksSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/recurring_tasks`));
+        const recurringTasks = recurringTasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        listEl.innerHTML = recurringTasks.length === 0 ? '<p>Brak zadań cyklicznych.</p>' : '';
+        const dayNames = ['N/A', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
+
+        recurringTasks.forEach(task => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'item-row';
+            const days = task.days.map(d => dayNames[d]).join(', ');
+            itemDiv.innerHTML = `
+                <div class="item-content-wrapper">
+                    <span>${task.content}</span>
+                    <span class="assignees">Osoby: ${task.assignees.join(', ') || 'brak'}</span>
+                      <span class="assignees">Dni: ${days}</span>
+                </div>
+                 <div>
+                    <button class="edit-recurring-btn">Edytuj</button>
+                    <button class="delete-recurring-btn">Usuń</button>
+                </div>
+            `;
+            itemDiv.querySelector('.edit-recurring-btn').onclick = async () => {
+                const newContent = prompt('Nowa treść zadania:', task.content);
+                if (newContent === null) return;
+
+                const newAssignees = prompt('Nowi przypisani (oddzieleni średnikiem):', (task.assignees || []).join(';'));
+                if (newAssignees === null) return;
+
+                const newDaysStr = prompt('Nowe dni (cyfry 1-7 oddzielone przecinkami, 1=Pn, 7=Nd):', task.days.join(','));
+                if (newDaysStr === null) return;
+
+                const newDays = newDaysStr.split(',').map(d => parseInt(d.trim())).filter(d => d >= 1 && d <= 7);
+                if (newDays.length === 0) {
+                    showModal('Błąd', 'Musisz podać przynajmniej jeden poprawny dzień (1-7).');
+                    return;
+                }
+
+                const updateData = {
+                    content: newContent,
+                    assignees: newAssignees.split(/[,;]/).map(s => s.trim()).filter(s => s),
+                    days: newDays
+                };
+
+                try {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/recurring_tasks`, task.id), updateData);
+                    renderRecurringTasks();
+                } catch (error) {
+                    showModal('Błąd', 'Nie udało się zaktualizować zadania cyklicznego.');
+                }
+            };
+            itemDiv.querySelector('.delete-recurring-btn').onclick = async () => {
+                if (confirm('Czy na pewno chcesz usunąć to zadanie cykliczne?')) {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/recurring_tasks`, task.id));
+                    renderRecurringTasks();
+                }
+            };
+            listEl.appendChild(itemDiv);
+        });
+    }
+
+    async function checkAndCreateRecurringTasks() {
+        if (!isAuthReady) return;
+        console.log("Checking recurring tasks...");
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        let dayOfWeek = today.getDay();
+        if (dayOfWeek === 0) dayOfWeek = 7;
+
+        const recurringTasksSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/recurring_tasks`));
+
+        const promises = [];
+        let createdAny = false;
+
+        recurringTasksSnapshot.forEach(doc => {
+            const recurringTask = { id: doc.id, ...doc.data() };
+            if (recurringTask.days.includes(dayOfWeek) && recurringTask.lastCreated !== todayStr) {
+                console.log(`Creating recurring task: ${recurringTask.content}`);
+                createdAny = true;
+                promises.push(addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), {
+                    content: recurringTask.content,
+                    assignees: recurringTask.assignees,
+                    createdAt: new Date(),
+                    done: false,
+                    visible: true
+                }));
+                promises.push(updateDoc(doc.ref, { lastCreated: todayStr }));
+            }
+        });
+
+        await Promise.all(promises);
+        if (createdAny) {
+            console.log("Finished creating recurring tasks, refreshing list.");
+            refreshAllData();
+        } else {
+            console.log("No new recurring tasks to create today.");
+        }
     }
 
     function initUserView() {
@@ -1746,74 +1912,6 @@
                 showModal('Błąd zapisu', 'Nie udało się dodać zadania: ' + error.message);
             }
         };
-    }
-
-    // --- ADMIN VIEW ---
-    function clearAdminEditor() {
-        currentAdminNoteId = null;
-        document.getElementById('note-title-input').value = '';
-        document.getElementById('note-color-input').value = '#000000';
-        document.getElementById('note-content-input').innerHTML = '';
-        document.getElementById('note-content-raw').value = '';
-        document.getElementById('note-timestamps').textContent = '';
-        document.querySelectorAll('#note-title-list .selected').forEach(item => item.classList.remove('selected'));
-        editorMode.admin = 'render';
-        document.getElementById('note-content-input').style.display = 'block';
-        document.getElementById('note-content-raw').style.display = 'none';
-        document.getElementById('admin-toggle-raw-btn').textContent = 'Edytuj Kod';
-    }
-
-    function loadAdminNoteIntoEditor(note) {
-        currentAdminNoteId = note.id;
-        document.getElementById('note-title-input').value = note.title || '';
-        document.getElementById('note-color-input').value = note.titleColor || note.title_color || '#000000';
-        document.getElementById('note-content-input').innerHTML = convertTextToHtml(note.content);
-        const ts = note.updatedAt || note.updated_at || note.createdAt;
-        const date = ts ? (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts)) : new Date(ts);
-        document.getElementById('note-timestamps').textContent = date ? `Ostatnia edycja: ${date.toLocaleString()}`: '';
-        editorMode.admin = 'render';
-        document.getElementById('note-content-input').style.display = 'block';
-        document.getElementById('note-content-raw').style.display = 'none';
-        document.getElementById('admin-toggle-raw-btn').textContent = 'Edytuj Kod';
-    }
-
-    async function saveAdminNote() {
-        const title = document.getElementById('note-title-input').value.trim();
-        if (!title) { showModal('Błąd', 'Tytuł jest wymagany'); return; }
-        const content = editorMode.admin === 'raw' ? document.getElementById('note-content-raw').value : convertRenderedToSource(document.getElementById('note-content-input'));
-        const noteData = { title, content, title_color: document.getElementById('note-color-input').value, updated_at: new Date().toISOString() };
-        const firebaseNoteData = { title, content, titleColor: document.getElementById('note-color-input').value, updatedAt: new Date() };
-
-        try {
-            if (currentAdminNoteId) {
-                if (currentAdminNoteId.startsWith('supabase')) {
-                    await supabase.from('notes').update(noteData).eq('id', currentAdminNoteId.replace('supabase-',''));
-                } else {
-                    await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId), firebaseNoteData);
-                }
-            } else {
-                await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...firebaseNoteData, createdAt: new Date(), pinned: false, public: false, uuid: crypto.randomUUID() });
-                clearAdminEditor();
-            }
-            renderNotes(true);
-        } catch(error) {
-            showModal('Błąd zapisu', 'Nie udało się zapisać notatki: ' + error.message);
-        }
-    }
-
-    async function deleteAdminNote() {
-        if (!currentAdminNoteId || !confirm('Czy na pewno chcesz usunąć tę notatkę?')) return;
-        try {
-            if (currentAdminNoteId.startsWith('supabase')) {
-                await supabase.from('notes').delete().eq('id', currentAdminNoteId.replace('supabase-', ''));
-            } else {
-                await deleteDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentAdminNoteId));
-            }
-            clearAdminEditor();
-            renderNotes(true);
-        } catch (error) {
-            showModal('Błąd', 'Nie udało się usunąć notatki: ' + error.message);
-        }
     }
 
     function initAdminView() {
@@ -1933,116 +2031,13 @@
         };
     }
 
-    // --- RECURRING TASKS ---
-    async function renderRecurringTasks() {
-        const listEl = document.getElementById('recurring-task-list');
-        if(!listEl) return;
-        listEl.innerHTML = 'Ładowanie...';
-        const recurringTasksSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/recurring_tasks`));
-        const recurringTasks = recurringTasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        listEl.innerHTML = recurringTasks.length === 0 ? '<p>Brak zadań cyklicznych.</p>' : '';
-        const dayNames = ['N/A', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
-
-        recurringTasks.forEach(task => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'item-row';
-            const days = task.days.map(d => dayNames[d]).join(', ');
-            itemDiv.innerHTML = `
-                <div class="item-content-wrapper">
-                    <span>${task.content}</span>
-                    <span class="assignees">Osoby: ${task.assignees.join(', ') || 'brak'}</span>
-                     <span class="assignees">Dni: ${days}</span>
-                </div>
-                 <div>
-                    <button class="edit-recurring-btn">Edytuj</button>
-                    <button class="delete-recurring-btn">Usuń</button>
-                </div>
-            `;
-            itemDiv.querySelector('.edit-recurring-btn').onclick = async () => {
-                const newContent = prompt('Nowa treść zadania:', task.content);
-                if (newContent === null) return;
-
-                const newAssignees = prompt('Nowi przypisani (oddzieleni średnikiem):', (task.assignees || []).join(';'));
-                if (newAssignees === null) return;
-
-                const newDaysStr = prompt('Nowe dni (cyfry 1-7 oddzielone przecinkami, 1=Pn, 7=Nd):', task.days.join(','));
-                if (newDaysStr === null) return;
-
-                const newDays = newDaysStr.split(',').map(d => parseInt(d.trim())).filter(d => d >= 1 && d <= 7);
-                if (newDays.length === 0) {
-                    showModal('Błąd', 'Musisz podać przynajmniej jeden poprawny dzień (1-7).');
-                    return;
-                }
-
-                const updateData = {
-                    content: newContent,
-                    assignees: newAssignees.split(/[,;]/).map(s => s.trim()).filter(s => s),
-                    days: newDays
-                };
-
-                try {
-                    await updateDoc(doc(db, `artifacts/${appId}/public/data/recurring_tasks`, task.id), updateData);
-                    renderRecurringTasks();
-                } catch (error) {
-                    showModal('Błąd', 'Nie udało się zaktualizować zadania cyklicznego.');
-                }
-            };
-            itemDiv.querySelector('.delete-recurring-btn').onclick = async () => {
-                if (confirm('Czy na pewno chcesz usunąć to zadanie cykliczne?')) {
-                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/recurring_tasks`, task.id));
-                    renderRecurringTasks();
-                }
-            };
-            listEl.appendChild(itemDiv);
-        });
-    }
-
-    async function checkAndCreateRecurringTasks() {
-        if (!isAuthReady) return;
-        console.log("Checking recurring tasks...");
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        let dayOfWeek = today.getDay();
-        if (dayOfWeek === 0) dayOfWeek = 7;
-
-        const recurringTasksSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/recurring_tasks`));
-
-        const promises = [];
-        let createdAny = false;
-
-        recurringTasksSnapshot.forEach(doc => {
-            const recurringTask = { id: doc.id, ...doc.data() };
-            if (recurringTask.days.includes(dayOfWeek) && recurringTask.lastCreated !== todayStr) {
-                console.log(`Creating recurring task: ${recurringTask.content}`);
-                createdAny = true;
-                promises.push(addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), {
-                    content: recurringTask.content,
-                    assignees: recurringTask.assignees,
-                    createdAt: new Date(),
-                    done: false,
-                    visible: true
-                }));
-                promises.push(updateDoc(doc.ref, { lastCreated: todayStr }));
-            }
-        });
-
-        await Promise.all(promises);
-        if (createdAny) {
-            console.log("Finished creating recurring tasks, refreshing list.");
-            refreshAllData();
-        } else {
-            console.log("No new recurring tasks to create today.");
-        }
-    }
-
-
     // --- EVENT LISTENERS & INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
         themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
         if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
         updateThemeIcon();
 
+        // Functions initUserView and initAdminView are now defined and called here
         initUserView();
         initAdminView();
 
@@ -2050,7 +2045,7 @@
             showAdminView();
         } else {
             document.getElementById('user-view').style.display = 'block';
-            isUserInitialized = true; // Set this flag
+            isUserInitialized = true;
             refreshAllData();
         }
 
@@ -2086,21 +2081,23 @@
         async function handleCheckboxAutoSave(e) {
             if (e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
                 const isAdmin = e.currentTarget.id === 'note-content-input';
-
                 setTimeout(() => {
-                    if (isAdmin) {
-                        saveAdminNote();
-                    } else {
-                        saveUserNote();
-                    }
+                    if (isAdmin) { saveAdminNote(); } else { saveUserNote(); }
                 }, 100);
             }
         }
         document.getElementById('user-note-content-input').addEventListener('change', handleCheckboxAutoSave);
         document.getElementById('note-content-input').addEventListener('change', handleCheckboxAutoSave);
 
-
         setupTaskListeners();
+
+        // Inventory Listeners
+        ['user', 'admin'].forEach(prefix => {
+            const render = () => renderInventory(prefix === 'admin');
+            document.getElementById(`${prefix}-inv-search-name`)?.addEventListener('input', render);
+            document.getElementById(`${prefix}-inv-search-code`)?.addEventListener('input', render);
+            document.getElementById(`${prefix}-inv-sort`)?.addEventListener('change', render);
+        });
     });
 
     function setupTaskListeners() {
@@ -2226,4 +2223,3 @@
 </script>
 </body>
 </html>
-
