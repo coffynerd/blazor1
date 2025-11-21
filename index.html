@@ -249,13 +249,13 @@
 <div id="user-view">
     <div class="nav-bar blue-nav">
         <div class="nav-links" id="user-nav-links">
-            <a data-page="user-tasks">Lista zadań</a>
-            <a data-page="user-order">Do zamówienia</a>
-            <a data-page="user-schedule">Grafik</a>
-            <a data-page="user-schedule-requests">Wnioski do grafiku</a>
+            <a data-page="user-tasks">📋 Lista zadań</a>
+            <a data-page="user-order">🛒 Do zamówienia</a>
+            <a data-page="user-schedule">📅 Grafik</a>
+            <a data-page="user-schedule-requests">📝 Wnioski do grafiku</a>
             <a data-page="user-inventory">📦 Magazyn</a>
-            <a data-page="user-notes">Notatnik</a>
-            <a id="switch-to-admin-btn">Panel Administratora</a>
+            <a data-page="user-notes">📒 Notatnik</a>
+            <a id="switch-to-admin-btn">🔐 Panel Administratora</a>
         </div>
         <div class="nav-actions">
             <button class="refresh-btn" title="Odśwież dane">🔄</button>
@@ -365,15 +365,15 @@
 <div id="admin-view" style="display: none;">
     <div class="nav-bar gray-nav">
         <div class="nav-links" id="admin-nav-links">
-            <a data-page="admin-tasks">Lista zadań</a>
-            <a data-page="admin-recurring-tasks">Zadania cykliczne</a>
-            <a data-page="admin-order">Do zamówienia</a>
+            <a data-page="admin-tasks">📋 Zadania</a>
+            <a data-page="admin-recurring-tasks">🔄 Cykliczne</a>
+            <a data-page="admin-order">🛒 Zamówienia</a>
             <a data-page="admin-inventory">📦 Magazyn</a>
-            <a data-page="admin-schedule">Grafik</a>
-            <a data-page="admin-schedule-requests">Wnioski do grafiku</a>
-            <a data-page="admin-notes">Notatnik</a>
-            <a id="switch-to-user-btn">Panel użytkownika</a>
-            <a id="admin-commands-btn">Komendy</a>
+            <a data-page="admin-schedule">📅 Grafik</a>
+            <a data-page="admin-schedule-requests">📝 Wnioski</a>
+            <a data-page="admin-notes">📒 Notatnik</a>
+            <a id="switch-to-user-btn">👤 Panel użytkownika</a>
+            <a id="admin-commands-btn">💻 Komendy</a>
         </div>
         <div class="nav-actions">
             <button class="refresh-btn" title="Odśwież dane">🔄</button>
@@ -409,7 +409,10 @@
     </div>
     <!-- NEW ADMIN INVENTORY TAB -->
     <div id="admin-inventory" class="content">
-        <h2>Zarządzanie Magazynem</h2>
+        <div class="page-header">
+            <h2>Zarządzanie Magazynem</h2>
+            <a href="https://drive.google.com/file/d/1rleT0kRGo11zloRZge6lY9qKpGcpueE0/view?usp=drive_link" target="_blank">📱 App</a>
+        </div>
         <div class="inventory-controls">
             <div class="filter-group">
                 <label>Nazwa produktu:</label>
@@ -1641,8 +1644,8 @@
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/notes`, currentUserNoteId), noteData);
             }
         } else {
-            const newDocRef = await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...noteData, createdAt: new Date(), pinned: false, public: true, submittedByUserId: userId, uuid: crypto.randomUUID() });
-            currentUserNoteId = newDocRef.id;
+            await addDoc(collection(db, `artifacts/${appId}/public/data/notes`), { ...noteData, createdAt: new Date(), pinned: false, public: true, submittedByUserId: userId, uuid: crypto.randomUUID() });
+            currentUserNoteId = null;
         }
         renderNotes(false);
         renderNotes(true);
