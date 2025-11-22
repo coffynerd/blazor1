@@ -22,6 +22,8 @@
             --supabase-source-color: #56a761;
             --firebase-source-color: #ffca28;
             --user-task-color: #007bff;
+            --accept-color: #28a745;
+            --reject-color: #dc3545;
         }
         body {
             font-family: 'Roboto', Arial, sans-serif;
@@ -78,7 +80,9 @@
         }
         .item-row.priority { color: var(--priority-color); font-weight: bold; }
         .item-row.user-submitted { color: var(--user-task-color); }
+
         .item-row.user-submitted.done, .item-row.priority.done { color: red !important; }
+
         .item-row.due-date-warning:not(.done) .task-text-container,
         .item-row.due-date-warning:not(.done) .due-date-text { color: purple; font-weight: bold; }
         .dark-mode .item-row.due-date-warning:not(.done) .task-text-container,
@@ -108,7 +112,6 @@
         .inventory-table tr:hover { background-color: rgba(0,0,0,0.02); }
         .price-tag { font-weight: bold; color: #28a745; }
 
-        /* Updated Quantity Badges */
         .quantity-badge {
             background: #fff; border: 1px solid #ddd; color: #000;
             padding: 4px 8px; border-radius: 12px; font-size: 0.9em; font-weight: bold;
@@ -163,11 +166,8 @@
         .dark-mode .inventory-table th { background-color: #2c2c2c; color: #ccc; border-bottom-color: #444; }
         .dark-mode .inventory-table td { border-bottom-color: #444; }
         .dark-mode .barcode-display { color: #eee; filter: invert(1); }
-
-        /* Dark mode inventory badges */
         .dark-mode .quantity-badge { background: #333; color: #fff; border-color: #555; }
         .dark-mode .quantity-badge.out { background: #5c181f; color: #ff6b6b; border-color: #5c181f; }
-
         .dark-mode .source-tag.firebase { color: black; }
 
         /* DARK MODE VACATION FIX */
@@ -329,7 +329,7 @@
         <h2>Magazyn / Cennik</h2>
         <div class="inventory-controls">
             <div class="filter-group">
-                <label>Nazwa produktu (można wpisać "%" jako dowolny ciąg):</label>
+                <label>Nazwa produktu:</label>
                 <input type="text" id="user-inv-search-name" placeholder="Wpisz nazwę (np. ziemia%20)...">
             </div>
             <div class="filter-group">
@@ -1572,24 +1572,114 @@
                 const buttonsDiv = document.createElement('div');
                 buttonsDiv.className = 'right-aligned-info';
 
+                // --- USER DELETE BUTTON ---
+                const userDeleteBtn = document.createElement('button');
+                userDeleteBtn.textContent = 'Usuń';
+                userDeleteBtn.className = 'delete-vacation-btn';
+                // Only allow users to delete PENDING requests
+                if (!req.is_accepted && !req.rejection_reason) {
+                    userDeleteBtn.onclick = async () => {
+                        if (confirm('Czy na pewno chcesz usunąć ten wniosek?')) {
+                            try {
+                                if (req.source === 'supabase') await supabase.from('vacation_requests').delete().eq('id', req.id.replace('supabase-',''));
+                                else await deleteDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id));
+                                renderVacationRequests(isAdmin);
+                            } catch(error) {
+                                showModal('Błąd', 'Nie udało się usunąć wniosku: ' + error.message);
+                            }
+                        }
+                    };
+                } else {
+                    userDeleteBtn.style.display = 'none'; // Hide if finalized
+                }
+
                 if (isAdmin) {
                     const date = new Date(req.createdAt || req.created_at);
                     const dateInfo = !isNaN(date) ? `<div class="date-info">${date.toLocaleString('pl-PL')}</div>` : '';
-                    let rejectButton = '';
-                    if (req.source === 'firebase') {
-                        rejectButton = `<button class="reject-vacation-btn">Odrzuć</button>`;
-                    }
-                    buttonsDiv.innerHTML = `
+
+                    // Admin Buttons Container
+                    const adminBtnsContainer = document.createElement('div');
+                    adminBtnsContainer.innerHTML = `
                         ${dateInfo}
-                        <div>
-                            <label style="cursor:pointer; margin-right: 10px;"><input type="checkbox" class="accept-vacation-checkbox" ${req.is_accepted ? 'checked' : ''}> Akceptuj</label>
-                            <button class="toggle-visibility-btn">${req.is_visible !== false ? 'Ukryj' : 'Pokaż'}</button>
-                            <button class="edit-vacation-btn">Edytuj</button>
-                            ${rejectButton}
-                            <button class="delete-vacation-btn">Usuń</button>
+                        <div style="margin-top: 5px;">
+                            <label style="cursor:pointer; margin-right: 10px;">
+                                <input type="checkbox" class="accept-chk" ${req.is_accepted ? 'checked' : ''}> Akceptuj
+                            </label>
+                            <button class="toggle-vis">${req.is_visible !== false ? 'Ukryj' : 'Pokaż'}</button>
+                            <button class="edit-btn">Edytuj</button>
+                            ${req.source === 'firebase' ? '<button class="reject-btn" style="background-color: var(--reject-color);">Odrzuć</button>' : ''}
+                            <button class="del-btn">Usuń</button>
                         </div>`;
+
+                    // Attach Admin Listeners
+                    const acceptChk = adminBtnsContainer.querySelector('.accept-chk');
+                    acceptChk.onchange = async (e) => {
+                        const u={is_accepted:e.target.checked, rejection_reason:""};
+                        if(req.source==='supabase') await supabase.from('vacation_requests').update(u).eq('id', req.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id), u);
+                        renderVacationRequests(isAdmin);
+                    };
+
+                    adminBtnsContainer.querySelector('.toggle-vis').onclick = async () => {
+                        const u={is_visible:!(req.is_visible!==false)};
+                        if(req.source==='supabase') await supabase.from('vacation_requests').update(u).eq('id', req.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id), u);
+                        renderVacationRequests(isAdmin);
+                    };
+
+                    adminBtnsContainer.querySelector('.edit-btn').onclick = async () => {
+                        const new_start = prompt('Nowa data od:', req.start_date); if(!new_start) return;
+                        const new_end = prompt('Nowa data do:', req.end_date); if(!new_end) return;
+                        const new_notes = prompt('Notatka:', req.notes); if(new_notes===null) return;
+                        const u = {start_date: new_start, end_date: new_end, notes: new_notes};
+                        if(req.source==='supabase') await supabase.from('vacation_requests').update(u).eq('id', req.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id), u);
+                        renderVacationRequests(isAdmin);
+                    };
+
+                    const rejectBtn = adminBtnsContainer.querySelector('.reject-btn');
+                    if(rejectBtn) {
+                        rejectBtn.onclick = async () => {
+                            const reason = prompt("Podaj powód odrzucenia:");
+                            if(reason) {
+                                await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id), {is_accepted: false, rejection_reason: reason});
+                                renderVacationRequests(isAdmin);
+                            }
+                        };
+                    }
+
+                    adminBtnsContainer.querySelector('.del-btn').onclick = async () => {
+                        if(confirm('Usunąć?')) {
+                            if(req.source==='supabase') await supabase.from('vacation_requests').delete().eq('id', req.id.replace('supabase-',''));
+                            else await deleteDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id));
+                            renderVacationRequests(isAdmin);
+                        }
+                    };
+
+                    buttonsDiv.appendChild(adminBtnsContainer);
                 } else {
-                    buttonsDiv.innerHTML = `<div><button class="edit-vacation-btn">Edytuj</button></div>`;
+                    // User View: Show Edit/Delete for pending requests
+                    const userBtnsDiv = document.createElement('div');
+
+                    const userEditBtn = document.createElement('button');
+                    userEditBtn.textContent = 'Edytuj';
+                    userEditBtn.onclick = async () => {
+                        const new_start = prompt('Nowa data od:', req.start_date); if(!new_start) return;
+                        const new_end = prompt('Nowa data do:', req.end_date); if(!new_end) return;
+                        const new_notes = prompt('Notatka:', req.notes); if(new_notes===null) return;
+                        const u = {start_date: new_start, end_date: new_end, notes: new_notes};
+                        // User typically edits firebase docs they created, or supabase if user auth matches (but here anon auth)
+                        // Assuming user created firebase docs mostly.
+                        if(req.source==='supabase') await supabase.from('vacation_requests').update(u).eq('id', req.id.replace('supabase-',''));
+                        else await updateDoc(doc(db, `artifacts/${appId}/public/data/vacation_requests`, req.id), u);
+                        renderVacationRequests(isAdmin);
+                    };
+
+                    if (!req.is_accepted && !req.rejection_reason) {
+                        userBtnsDiv.appendChild(userEditBtn);
+                        userBtnsDiv.appendChild(userDeleteBtn);
+                    }
+                    buttonsDiv.appendChild(userBtnsDiv);
                 }
 
                 itemDiv.append(contentWrapper, buttonsDiv);
@@ -2163,8 +2253,8 @@
             if (e.target.closest('#switch-to-admin-btn') || e.target.closest('#admin-commands-btn')) handleCommandPrompt();
             if (e.target.closest('#switch-to-user-btn')) switchToUser();
 
-            const vacationList = e.target.closest('#user-schedule-request-list, #admin-schedule-request-list-visible, #admin-schedule-request-list-hidden');
-            if(vacationList) handleVacationListClick(e, vacationList.id.includes('admin'));
+            // Global delegation not needed for vacation as inline render attaches listeners,
+            // but we keep the click handler for general nav etc.
         });
 
         function handleNoteClick(e) {
